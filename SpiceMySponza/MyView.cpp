@@ -62,8 +62,6 @@ void MyView::windowViewWillStart(std::shared_ptr<tygra::Window> window)
     // Ensure the program gets built.
     buildProgram();
 
-    glUseProgram (m_program);
-
     // Retrieve the Sponza data ready for rendering.
     buildMeshData();
     
