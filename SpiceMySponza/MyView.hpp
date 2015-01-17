@@ -5,7 +5,6 @@
 
 
 // STL headers.
-#include <vector>
 #include <unordered_map>
 #include <memory>
 
@@ -15,6 +14,10 @@
 #include <tygra/WindowViewDelegate.hpp>
 #include <tgl/tgl.h>
 #include <Mesh.hpp>
+
+
+// Forward declarations.
+struct Vertex;
 
 
 /// <summary>
@@ -68,6 +71,9 @@ class MyView final : public tygra::WindowViewDelegate
 
         /// <summary> Will create the program then compile, attach and link all required shaders together. </summary>
         void buildProgram();
+
+        /// <summary> Fills a given vector with vertex information which is obtained from the given mesh. </summary>
+        void assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh);
 
         #pragma endregion
 

@@ -11,10 +11,10 @@ vec3 getPrimitiveColour();
 
 void main()
 {
-    //fragmentColour = vec4 (normalColour, 1.0);
+    fragmentColour = vec4 (normalColour, 1.0);
     //fragmentColour = vec4 (getPrimitiveColour(), 1.0);
-    vec3 textureColour = texture (textureSampler, texturePoint).rgb;
-    fragmentColour = vec4 (textureColour, 1.0);
+    //vec3 textureColour = texture (textureSampler, texturePoint).rgb;
+    //fragmentColour = vec4 (textureColour, 1.0);
     //fragmentColour = vec4 (textureColour * normalColour, 1.0);
 }
 

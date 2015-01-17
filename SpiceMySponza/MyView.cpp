@@ -11,9 +11,9 @@
 
 // Engine headers.
 #include <glm/gtc/matrix_transform.hpp>
-#include <glm/gtc/type_ptr.hpp>
 #include <SceneModel/SceneModel.hpp>
 #include <tygra/FileHelper.hpp>
+#include <Vertex.hpp>
 
 
 
@@ -68,38 +68,36 @@ void MyView::windowViewWillStart(std::shared_ptr<tygra::Window> window)
     // Iterate through each mesh adding them to the map.
     for (const auto& mesh : meshes)
     {
-        // Obtain each required attribute.
-        const auto& positions       = mesh.getPositionArray();
-        const auto& normals         = mesh.getNormalArray();
-        const auto& elements        = mesh.getElementArray();
-        const auto& texturePoints   = mesh.getTextureCoordinateArray();
-
-        // Initialise a new element.
+        // Obtain the required vertex information.
+        std::vector<Vertex> vertices { };
+        assembleVertices (vertices, mesh);
+        
+        // Initialise a new mesh.
         Mesh newMesh            = { };
+        
+        // Obtain the elements.
+        const auto& elements    = mesh.getElementArray();
         newMesh.elementCount    = elements.size();
 
         // Fill the vertex buffer objects with data.
-        fillVBO (newMesh.vboPosition, positions, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        fillVBO (newMesh.vboNormal, normals, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        fillVBO (newMesh.vboTexture, texturePoints, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        fillVBO (newMesh.vboElement, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+        fillVBO (newMesh.vboVertices, vertices, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+        fillVBO (newMesh.vboElements, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
 
         // Fill the vertex array object for rendering.
         glGenVertexArrays (1, &newMesh.vao);
         glBindVertexArray (newMesh.vao);
-        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, newMesh.vboElement);
+        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, newMesh.vboElements);
 
-        glBindBuffer (GL_ARRAY_BUFFER, newMesh.vboPosition);
+        glBindBuffer (GL_ARRAY_BUFFER, newMesh.vboVertices);        
+
         glEnableVertexAttribArray (0);
-        glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, sizeof (glm::vec3), TGL_BUFFER_OFFSET (0));
-        
-        glBindBuffer (GL_ARRAY_BUFFER, newMesh.vboNormal);
+        glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
+
         glEnableVertexAttribArray (1);
-        glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, sizeof (glm::vec3), TGL_BUFFER_OFFSET (0));
-        
-        glBindBuffer (GL_ARRAY_BUFFER, newMesh.vboTexture);
+        glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
+
         glEnableVertexAttribArray (2);
-        glVertexAttribPointer (2, 2, GL_FLOAT, GL_FALSE, sizeof (glm::vec2), TGL_BUFFER_OFFSET (0));
+        glVertexAttribPointer (2, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
         
         glBindBuffer (GL_ARRAY_BUFFER, 0);
         glBindVertexArray (0);
@@ -151,10 +149,8 @@ void MyView::windowViewDidStop(std::shared_ptr<tygra::Window> window)
     {
         const auto& mesh = pair.second;
 
-        glDeleteBuffers (1, &mesh.vboPosition);
-        glDeleteBuffers (1, &mesh.vboNormal);
-        glDeleteBuffers (1, &mesh.vboTexture);
-        glDeleteBuffers (1, &mesh.vboElement);
+        glDeleteBuffers (1, &mesh.vboVertices);
+        glDeleteBuffers (1, &mesh.vboElements);
         glDeleteVertexArrays (1, &mesh.vao);
     }
 
@@ -243,6 +239,25 @@ void MyView::buildProgram()
     linkProgram (m_program);
 }
 
+
+void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh)
+{
+    // Obtain each attribute.
+    const auto& positions       = mesh.getPositionArray();
+    const auto& normals         = mesh.getNormalArray();
+    const auto& texturePoints   = mesh.getTextureCoordinateArray();
+
+    // Check how much data we need to allocate.
+    const auto size             = positions.size();
+    vertices.resize (size);
+
+    // Fill the actual data.
+    for (unsigned int i = 0; i < size; ++i)
+    {
+        vertices[i] = { positions[i], normals[i], texturePoints[i] };
+    }
+}
+
 #pragma endregion
 
 
@@ -292,20 +307,23 @@ GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType 
 
 void attachShader (const GLuint program, const GLuint shader, const std::vector<GLchar*>& attributes)
 {
-    // We can't check if the shader ID is valid so just proceed with the attaching process.
-    glAttachShader (program, shader);
-
-    // Add the given attributes to the shader.
-    for (unsigned int i = 0; i < attributes.size(); ++i)
+    // Check whether we have a valid shader ID before continuing.
+    if (shader != 0)
     {
-        if (attributes[i] != nullptr)
-        {
-            glBindAttribLocation (program, i, attributes[i]);
-        }
-    }
+        glAttachShader (program, shader);
 
-    // Flag the shader for deletion.
-    glDeleteShader (shader);
+        // Add the given attributes to the shader.
+        for (unsigned int i = 0; i < attributes.size(); ++i)
+        {
+            if (attributes[i] != nullptr)
+            {
+                glBindAttribLocation (program, i, attributes[i]);
+            }
+        }
+
+        // Flag the shader for deletion.
+        glDeleteShader (shader);
+    }    
 }
 
 

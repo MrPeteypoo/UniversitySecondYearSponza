@@ -124,6 +124,7 @@
     </ClCompile>
     <ClCompile Include="MyController.cpp" />
     <ClCompile Include="MyView.cpp" />
+    <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\include\SceneModel\Camera.hpp" />
@@ -139,6 +140,7 @@
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="MyController.hpp" />
     <ClInclude Include="MyView.hpp" />
+    <ClInclude Include="Vertex.hpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\demo\sponza_fs.glsl" />
