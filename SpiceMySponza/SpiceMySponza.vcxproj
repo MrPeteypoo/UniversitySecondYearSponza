@@ -1,0 +1,150 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{63DC0F86-5510-4F73-A158-BC604C708338}</ProjectGuid>
+    <Keyword>Win32Proj</Keyword>
+    <RootNamespace>Test</RootNamespace>
+    <ProjectName>SpiceMySponza</ProjectName>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Application</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+    <CharacterSet>Unicode</CharacterSet>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <LinkIncremental>true</LinkIncremental>
+    <OutDir>$(SolutionDir)test\</OutDir>
+    <IntDir>$(SolutionDir)temp\$(Platfom)-$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)$(Platform)$(Configuration)</TargetName>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <LinkIncremental>false</LinkIncremental>
+    <OutDir>$(SolutionDir)demo\</OutDir>
+    <IntDir>$(SolutionDir)temp\$(Platfom)-$(Configuration)\</IntDir>
+    <TargetName>$(ProjectName)$(Platform)$(Configuration)</TargetName>
+  </PropertyGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <ClCompile>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>Disabled</Optimization>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../external/include;./</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>..\external\lib\$(Platform)\v$(PlatformToolsetVersion)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw.lib;libpng.lib;zlib.lib;tcf-vc120-mt-sg.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <PrecompiledHeader>
+      </PrecompiledHeader>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;_LIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <SDLCheck>true</SDLCheck>
+      <AdditionalIncludeDirectories>../external/include;./</AdditionalIncludeDirectories>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+    </ClCompile>
+    <Link>
+      <SubSystem>Console</SubSystem>
+      <GenerateDebugInformation>true</GenerateDebugInformation>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+      <AdditionalLibraryDirectories>..\external\lib\$(Platform)\v$(PlatformToolsetVersion)\$(Configuration)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>opengl32.lib;glfw.lib;libpng.lib;zlib.lib;tcf-vc120-mt-s.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+    <ProjectReference>
+      <LinkLibraryDependencies>true</LinkLibraryDependencies>
+    </ProjectReference>
+    <PostBuildEvent>
+      <Command>
+      </Command>
+    </PostBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemGroup>
+    <ClCompile Include="..\external\src\SceneModel\Camera.cpp" />
+    <ClCompile Include="..\external\src\SceneModel\Context.cpp" />
+    <ClCompile Include="..\external\src\SceneModel\GeometryBuilder.cpp" />
+    <ClCompile Include="..\external\src\SceneModel\Instance.cpp" />
+    <ClCompile Include="..\external\src\SceneModel\Light.cpp" />
+    <ClCompile Include="..\external\src\SceneModel\Material.cpp" />
+    <ClCompile Include="..\external\src\SceneModel\Mesh.cpp" />
+    <ClCompile Include="..\external\src\tgl\tgl.c" />
+    <ClCompile Include="..\external\src\tygra\FileHelper.cpp" />
+    <ClCompile Include="..\external\src\tygra\Window.cpp" />
+    <ClCompile Include="main.cpp" />
+    <ClCompile Include="Mesh.cpp">
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)MyMesh</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)MyMesh</ObjectFileName>
+    </ClCompile>
+    <ClCompile Include="MyController.cpp" />
+    <ClCompile Include="MyView.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\external\include\SceneModel\Camera.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\Context.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\GeometryBuilder.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\Instance.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\Light.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\Material.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\Mesh.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\SceneModel.hpp" />
+    <ClInclude Include="..\external\include\SceneModel\SceneModel_fwd.hpp" />
+    <ClInclude Include="..\external\src\SceneModel\FirstPersonMovement.hpp" />
+    <ClInclude Include="Mesh.hpp" />
+    <ClInclude Include="MyController.hpp" />
+    <ClInclude Include="MyView.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\demo\sponza_fs.glsl" />
+    <None Include="..\demo\sponza_vs.glsl" />
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

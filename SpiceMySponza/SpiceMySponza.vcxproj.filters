@@ -1,0 +1,119 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{61856a5b-3a54-45de-a597-99e3d9a759db}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shader Files">
+      <UniqueIdentifier>{e36f76a8-f65c-4afd-b039-29b35d29dae4}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{c3c0dcf7-d204-4ca3-9adb-b94d6ad90237}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External">
+      <UniqueIdentifier>{503669be-6b85-4a59-876f-7c5213af31d0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\tgl">
+      <UniqueIdentifier>{9a3c9550-3b48-4f15-a26d-b1b531d95fd8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\tygra">
+      <UniqueIdentifier>{35a81ccb-0b08-4f72-979f-3c831d80462d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="External\SceneModel">
+      <UniqueIdentifier>{19dd60ce-03c7-4c6a-9a30-703490d9d5c2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MyController.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="MyView.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\tgl\tgl.c">
+      <Filter>External\tgl</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\tygra\Window.cpp">
+      <Filter>External\tygra</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\tygra\FileHelper.cpp">
+      <Filter>External\tygra</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\GeometryBuilder.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\Instance.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\Light.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\Material.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\Mesh.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\Camera.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="..\external\src\SceneModel\Context.cpp">
+      <Filter>External\SceneModel</Filter>
+    </ClCompile>
+    <ClCompile Include="Mesh.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="MyController.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="MyView.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\GeometryBuilder.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\Instance.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\Light.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\Material.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\Mesh.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\SceneModel.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\SceneModel_fwd.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\Camera.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\include\SceneModel\Context.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="..\external\src\SceneModel\FirstPersonMovement.hpp">
+      <Filter>External\SceneModel</Filter>
+    </ClInclude>
+    <ClInclude Include="Mesh.hpp">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\demo\sponza_vs.glsl">
+      <Filter>Shader Files</Filter>
+    </None>
+    <None Include="..\demo\sponza_fs.glsl">
+      <Filter>Shader Files</Filter>
+    </None>
+  </ItemGroup>
+</Project>
