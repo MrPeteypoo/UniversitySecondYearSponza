@@ -34,6 +34,7 @@ MyView& MyView::operator= (MyView&& move)
 
         m_scene = std::move (move.m_scene);
         m_meshes = std::move (move.m_meshes);
+        m_hexTexture = std::move (move.m_hexTexture);
     }
 
     return *this;
@@ -56,95 +57,35 @@ void MyView::setScene(std::shared_ptr<const SceneModel::Context> scene)
 
 void MyView::windowViewWillStart(std::shared_ptr<tygra::Window> window)
 {
-    assert(m_scene != nullptr);
+    assert (m_scene != nullptr);
     
     // Ensure the program gets built.
     buildProgram();
 
-    // Begin to construct sponza.
-    const auto& builder = SceneModel::GeometryBuilder();
-    const auto& meshes  = builder.getAllMeshes();
+    glUseProgram (m_program);
 
-    // Iterate through each mesh adding them to the map.
-    for (const auto& mesh : meshes)
-    {
-        // Obtain the required vertex information.
-        std::vector<Vertex> vertices { };
-        assembleVertices (vertices, mesh);
-        
-        // Initialise a new mesh.
-        Mesh newMesh            = { };
-        
-        // Obtain the elements.
-        const auto& elements    = mesh.getElementArray();
-        newMesh.elementCount    = elements.size();
-
-        // Fill the vertex buffer objects with data.
-        fillVBO (newMesh.vboVertices, vertices, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        fillVBO (newMesh.vboElements, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
-
-        // Fill the vertex array object for rendering.
-        glGenVertexArrays (1, &newMesh.vao);
-        glBindVertexArray (newMesh.vao);
-        glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, newMesh.vboElements);
-
-        glBindBuffer (GL_ARRAY_BUFFER, newMesh.vboVertices);        
-
-        glEnableVertexAttribArray (0);
-        glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
-
-        glEnableVertexAttribArray (1);
-        glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
-
-        glEnableVertexAttribArray (2);
-        glVertexAttribPointer (2, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
-        
-        glBindBuffer (GL_ARRAY_BUFFER, 0);
-        glBindVertexArray (0);
-
-        // Finally add the mesh to the map.
-        m_meshes.emplace (mesh.getId(), std::move (newMesh));
-    }    
+    // Retrieve the Sponza data ready for rendering.
+    buildMeshData();
     
     // Finally load the hex texture.
-    tygra::Image texture_image = tygra::imageFromPNG ("hex.png");
-    if (texture_image.containsData()) 
-    {
-        glGenTextures(1, &m_hexTexture);
-        glBindTexture(GL_TEXTURE_2D, m_hexTexture);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                                       GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-        GLenum pixel_formats[] = { 0, GL_RED, GL_RG, GL_RGB, GL_RGBA };
-        glTexImage2D(GL_TEXTURE_2D,
-                     0,
-                     GL_RGBA,
-                     texture_image.width(),
-                     texture_image.height(),
-                     0,
-                     pixel_formats[texture_image.componentsPerPixel()],
-                     texture_image.bytesPerComponent() == 1 ? GL_UNSIGNED_BYTE
-                                                            : GL_UNSIGNED_SHORT,
-                     texture_image.pixels());
-        glGenerateMipmap(GL_TEXTURE_2D);
-        glBindTexture(GL_TEXTURE_2D, 0);
-    }
+    bindTexture2D (m_hexTexture, "hex.png");    
 }
 
 
 void MyView::windowViewDidReset(std::shared_ptr<tygra::Window> window, int width, int height)
 {
-    glViewport(0, 0, width, height);
+    // Reset the viewport and calculate the aspect ratio.
+    glViewport (0, 0, width, height);
     m_aspectRatio = width / static_cast<float> (height);
 }
 
 
 void MyView::windowViewDidStop(std::shared_ptr<tygra::Window> window)
 {
+    // Delete the program.
     glDeleteProgram (m_program);
     
+    // Delete all VAOs and VBOs.
     for (const auto& pair : m_meshes)
     {
         const auto& mesh = pair.second;
@@ -154,6 +95,7 @@ void MyView::windowViewDidStop(std::shared_ptr<tygra::Window> window)
         glDeleteVertexArrays (1, &mesh.vao);
     }
 
+    // Delete all textures.
     glDeleteTextures (1, &m_hexTexture);
 }
 
@@ -164,13 +106,15 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
 
     // Prepare the screen.
     glEnable (GL_DEPTH_TEST);
-    glClearColor (0.f, 0.1f, 0.f, 0.f);
+    glEnable (GL_CULL_FACE);
+
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClearColor (0.f, 0.1f, 0.f, 0.f);
     
     // Define matrices.
-    const auto  camera       = m_scene->getCamera();
+    const auto& camera       = m_scene->getCamera();
     const auto  projection   = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
-                view         = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), glm::vec3 (0, 1, 0));
+                view         = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
 
     // Specify shader program to use.
     glUseProgram (m_program);
@@ -180,9 +124,16 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
                 modelID     = glGetUniformLocation (m_program, "modelTransform"),
                 textureID   = glGetUniformLocation (m_program, "textureSampler");
 
+    // Set never changing uniforms.
+    glUniform1i (textureID, 0);
+
+    // Specify the texture to use.
+    glActiveTexture (GL_TEXTURE0);
+    glBindTexture (GL_TEXTURE_2D, m_hexTexture);
+
     // Prepare to render each object in the scene.
     const auto& instances   = m_scene->getAllInstances();
-    
+
     for (const auto& instance : instances)
     {        
         // Finish creating the required matricies.
@@ -198,13 +149,6 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
 
         // Specify VAO to use.
         glBindVertexArray (mesh.vao);
-
-        // Specify the texture to use.
-        glActiveTexture (GL_TEXTURE0);
-        glBindTexture (GL_TEXTURE_2D, m_hexTexture);
-
-        // Set never changing uniforms.
-        glUniform1i (textureID, 0);
 
         // Draw.
         glDrawElements (GL_TRIANGLES, mesh.elementCount, GL_UNSIGNED_INT, 0);
@@ -240,6 +184,39 @@ void MyView::buildProgram()
 }
 
 
+void MyView::buildMeshData()
+{
+    // Begin to construct sponza.
+    const auto& builder = SceneModel::GeometryBuilder();
+    const auto& meshes  = builder.getAllMeshes();
+
+    // Iterate through each mesh adding them to the map.
+    for (const auto& mesh : meshes)
+    {
+        // Obtain the required vertex information.
+        std::vector<Vertex> vertices { };
+        assembleVertices (vertices, mesh);
+        
+        // Initialise a new mesh.
+        Mesh newMesh            = { };
+        
+        // Obtain the elements.
+        const auto& elements    = mesh.getElementArray();
+        newMesh.elementCount    = elements.size();
+
+        // Fill the vertex buffer objects with data.
+        fillVBO (newMesh.vboVertices, vertices, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+        fillVBO (newMesh.vboElements, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+
+        // Fill the vertex array object for rendering.
+        constructVAO (newMesh);
+
+        // Finally add the mesh to the map.
+        m_meshes.emplace (mesh.getId(), std::move (newMesh));
+    }    
+}
+
+
 void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh)
 {
     // Obtain each attribute.
@@ -258,6 +235,36 @@ void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::
     }
 }
 
+
+void MyView::constructVAO (Mesh& mesh)
+{
+    // Generate the VAO.
+    glGenVertexArrays (1, &mesh.vao);
+    glBindVertexArray (mesh.vao);
+
+    // Bind the element buffer to the VAO.
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, mesh.vboElements);
+
+    // Begin creating the vertex attribute pointer from the interleaved buffer.
+    glBindBuffer (GL_ARRAY_BUFFER, mesh.vboVertices);        
+
+    // Position data.
+    glEnableVertexAttribArray (0);
+    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
+
+    // Normal data.
+    glEnableVertexAttribArray (1);
+    glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
+
+    // Texture co-ordinate data.
+    glEnableVertexAttribArray (2);
+    glVertexAttribPointer (2, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
+        
+    // Unbind all buffers.
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+    glBindVertexArray (0);
+}
+
 #pragma endregion
 
 
@@ -266,8 +273,8 @@ void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::
 GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType shader)
 {
     // Read in the shader into a const char*.
-    const std::string shaderString = tygra::stringFromFile (fileLocation);
-    const char* shaderCode = shaderString.c_str();
+    const auto  shaderString = tygra::stringFromFile (fileLocation);
+    auto        shaderCode = shaderString.c_str();
     
     // Attempt to compile the shader.
     GLuint shaderID { };
@@ -349,6 +356,45 @@ bool linkProgram (const GLuint program)
     }
 
     return true;
+}
+
+
+void bindTexture2D (GLuint& textureBuffer, const std::string& fileLocation)
+{
+    // Attempt to load the image.
+    tygra::Image image = tygra::imageFromPNG (fileLocation);
+
+    if (image.containsData()) 
+    {
+        // Start by preparing the texture buffer.
+        glGenTextures (1, &textureBuffer);
+        glBindTexture (GL_TEXTURE_2D, textureBuffer);
+
+        // Enable standard filters.
+        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,  GL_LINEAR);
+        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,  GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,      GL_REPEAT);
+        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,      GL_REPEAT);
+
+        // Enable each different pixel format.
+        GLenum pixel_formats[] = { 0, GL_RED, GL_RG, GL_RGB, GL_RGBA };
+
+        // Load the texture into OpenGL.
+        glTexImage2D (  GL_TEXTURE_2D, 0, GL_RGBA,          
+                      
+                        // Dimensions and border.
+                        image.width(), image.height(), 0,   
+                      
+                        // Format and type.
+                        pixel_formats[image.componentsPerPixel()], image.bytesPerComponent() == 1 ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT,
+                      
+                        // Data.
+                        image.pixels());
+
+        // Generate the mipmaps from the loaded texture and finish.
+        glGenerateMipmap (GL_TEXTURE_2D);
+        glBindTexture (GL_TEXTURE_2D, 0);
+    }
 }
 
 #pragma endregion

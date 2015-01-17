@@ -72,8 +72,21 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Will create the program then compile, attach and link all required shaders together. </summary>
         void buildProgram();
 
-        /// <summary> Fills a given vector with vertex information which is obtained from the given mesh. </summary>
+        /// <summary> Retrieves all VAO and VBO ready for the rendering of the scene. </summary>
+        void buildMeshData();
+
+        /// <summary> 
+        /// Fills a given vector with vertex information which is obtained from the given mesh.
+        /// </summary>
+        /// <param name="vertices"> An array to be filled with Vertex information. </param>
+        /// <param name="mesh"> The mesh to retrieve Vertex data from. </param>
         void assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh);
+
+        /// <summary>
+        /// Constructs the VAO for a mesh based on an interleaved VBO.
+        /// </summary>
+        /// <param name="mesh"> The mesh to have its' VAO constructed. </param>
+        void constructVAO (Mesh& mesh);
 
         #pragma endregion
 
@@ -95,25 +108,35 @@ class MyView final : public tygra::WindowViewDelegate
 /// Compiles a shader from a file located on the machine. 
 /// <returns> Returns the OpenGL ID of the compiled shader, 0 means an error occurred. </returns>
 /// </summary>
+/// <param name="fileLocation"> The location of the shader file. </param>
+/// <param name="shader"> The type of shader to compile. </param>
 GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType shader);
 
 
 /// <summary> 
 /// Attaches a shader to the given program. It will also fill the shader with the attributes specified. 
 /// </summary>
-void attachShader (const GLuint program, const GLuint vertexShader, const std::vector<GLchar*>& attributes);
+/// <param name="program"> The ID of the OpenGL program to attach the shader to. </param>
+/// <param name="shader"> The ID of the OpenGL shader we will be attaching. </param>
+/// <param name="attributes"> An array of attributes to bind to the shader. </param>
+void attachShader (const GLuint program, const GLuint shader, const std::vector<GLchar*>& attributes);
 
 
 /// <summary> 
 /// Links all attached shaders together ready for use. 
 /// <returns> Returns whether the linking process was successful or not. </returns>
 /// </summary>
+/// <param name="program"> The ID of the OpenGL program which we will be linking together. </param>
 bool linkProgram (const GLuint program);
 
 
 /// <summary>
 /// Generates and fills a VBO with the given data.
 /// </summary>
+/// <param name="vbo"> The empty VBO which will reflect the value of newly bound buffer. </param>
+/// <param name="data"> An array of data to fill the vbo with. </param>
+/// <param name="target"> The target buffer type, e.g. GL_ARRAY_BUFFER/GL_ELEMENT_ARRAY_BUFFER. </param>
+/// <param name="usage"> The usage parameter of the buffered data, e.g. GL_STATIC_DRAW. </param>
 template <typename T> void fillVBO (GLuint& vbo, const std::vector<T>& data, const GLenum target, const GLenum usage)
 {
     glGenBuffers (1, &vbo);
@@ -121,6 +144,14 @@ template <typename T> void fillVBO (GLuint& vbo, const std::vector<T>& data, con
     glBufferData (target, data.size() * sizeof (T), data.data(), usage);
     glBindBuffer (target, 0);
 }
+
+
+/// <summary>
+/// Generates and binds a texture buffer from the given file location.
+/// </summary>
+/// <param name="textureBuffer"> The buffer to fill with the texture data. </param>
+/// <param name="fileLocation> The location of the texture file to load. </param>
+void bindTexture2D (GLuint& textureBuffer, const std::string& fileLocation);
 
 #pragma endregion
 
