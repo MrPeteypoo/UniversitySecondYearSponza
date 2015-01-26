@@ -98,6 +98,9 @@ class MyView final : public tygra::WindowViewDelegate
         std::vector<std::pair<SceneModel::MeshId, Mesh>>    m_meshes        { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
 
         GLuint                                              m_instancePool  { 0 };          //!< A pool of memory used in speeding up instanced rendering.
+        size_t                                              m_poolSize      { 0 };          //!< The current size of the pool, useful for optimising rendering.
+
+
         GLuint                                              m_hexTexture    { 0 };          //!< The ID of the hex texture to be drawn on Sponza.
 
         #pragma endregion

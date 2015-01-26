@@ -120,8 +120,8 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
     glUseProgram (m_program);
 
     // Get uniform locations.
-    const auto  projectionID    = glGetUniformLocation (m_program, "projectionTransform"),
-                viewID          = glGetUniformLocation (m_program, "viewTransform"),
+    const auto  projectionID    = glGetUniformLocation (m_program, "projection"),
+                viewID          = glGetUniformLocation (m_program, "view"),
                 textureID       = glGetUniformLocation (m_program, "textureSampler");
 
     // Set uniform variables.
@@ -135,6 +135,13 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
 
     // Bind the instance pool as the active buffer.
     glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
+    
+    // Cache a vector full of model and PVM matrices for the rendering.
+    std::vector<glm::mat4> matrices { };
+    matrices.resize (m_poolSize);
+
+    // Cache the instance size calculation.
+    const auto instanceSize = sizeof (glm::mat4) * 2;
 
     // Iterate through each mesh using instance rendering to reduce GL calls.
     for (const auto& pair : m_meshes)
@@ -148,10 +155,8 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
         {
             // Cache access to the current mesh.
             const auto& mesh    = pair.second;
-            
-            // Set the instance-specific model and PVM matrices.
-            auto matrices = static_cast<glm::mat4*> (glMapBuffer (GL_ARRAY_BUFFER, GL_WRITE_ONLY));
 
+            // Update the instance specific matrices.
             for (unsigned int i = 0; i < size; ++i)
             {
                 // Obtain the current instances model transformation.
@@ -164,8 +169,8 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
                 matrices[offset + 1]    = projection * view * model;
             }
 
-            // Unmap the buffer captain!
-            glUnmapBuffer (GL_ARRAY_BUFFER);
+            // Only buffer the required data to save time.
+            glBufferSubData (GL_ARRAY_BUFFER, 0, instanceSize * size, matrices.data());
 
             // Specify the VAO to use.
             glBindVertexArray (mesh.vao);
@@ -198,7 +203,7 @@ void MyView::buildProgram()
     const auto fragmentShader                       = compileShaderFromFile (fragmentShaderLocation, ShaderType::Fragment);
     
     // Attach the shaders to the program we created.
-    const std::vector<GLchar*> vertexAttributes     = { "position", "normal", "textureCoord", "modelTransform", "pvmTransform" };
+    const std::vector<GLchar*> vertexAttributes     = { "position", "normal", "textureCoord", "model", "pvm" };
     const std::vector<GLchar*> fragmentAttributes   = {  };
 
     attachShader (m_program, vertexShader, vertexAttributes);
@@ -282,8 +287,8 @@ void MyView::constructVAO (Mesh& mesh)
     int normal          { glGetAttribLocation (m_program, "normal") };
     int textureCoord    { glGetAttribLocation (m_program, "textureCoord") };
 
-    int modelTransform  { glGetAttribLocation (m_program, "modelTransform") };
-    int pvmTransform    { glGetAttribLocation (m_program, "pvmTransform") };
+    int modelTransform  { glGetAttribLocation (m_program, "model") };
+    int pvmTransform    { glGetAttribLocation (m_program, "pvm") };
 
     // Generate the VAO.
     glGenVertexArrays (1, &mesh.vao);
@@ -338,9 +343,12 @@ void MyView::allocateInstancePool()
             }
         }
 
+        // We store two matrices per instance.
+        m_poolSize = highest * 2;
+
         // Finally resize the buffer to the correct size. We need to store two matrices per instance.
         glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
-        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * highest * 2, nullptr, GL_DYNAMIC_DRAW);
+        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
         glBindBuffer (GL_ARRAY_BUFFER, 0);
     }
 }
