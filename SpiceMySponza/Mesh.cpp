@@ -20,9 +20,8 @@ Mesh& Mesh::operator= (Mesh&& move)
     // Avoid moving self to self.
     if (this != &move)
     {
-        vao             = std::move (move.vao);
-        vboVertices     = std::move (move.vboVertices);
-        vboElements     = std::move (move.vboElements);
+        verticesIndex   = std::move (move.verticesIndex);
+        elementsOffset  = std::move (move.elementsOffset);
         elementCount    = std::move (move.elementCount);
     }
 
