@@ -75,18 +75,17 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Retrieves all VAO and VBO ready for the rendering of the scene. </summary>
         void buildMeshData();
 
-        /// <summary> 
-        /// Fills a given vector with vertex information which is obtained from the given mesh.
-        /// </summary>
+        /// <summary> Fills a given vector with vertex information which is obtained from the given mesh. </summary>
         /// <param name="vertices"> An array to be filled with Vertex information. </param>
         /// <param name="mesh"> The mesh to retrieve Vertex data from. </param>
         void assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh);
 
-        /// <summary>
-        /// Constructs the VAO for a mesh based on an interleaved VBO.
-        /// </summary>
+        /// <summary> Constructs the VAO for a mesh based on an interleaved VBO. </summary>
         /// <param name="mesh"> The mesh to have its' VAO constructed. </param>
         void constructVAO (Mesh& mesh);
+
+        /// <summary> This will go through each mesh in the scene and buffer enough memory for the highest instance count in sponza. </summary>
+        void allocateInstancePool();
 
         #pragma endregion
 
@@ -97,6 +96,8 @@ class MyView final : public tygra::WindowViewDelegate
 
         std::shared_ptr<const SceneModel::Context>          m_scene         { nullptr };    //!< The sponza scene.
         std::vector<std::pair<SceneModel::MeshId, Mesh>>    m_meshes        { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
+
+        GLuint                                              m_instancePool  { 0 };          //!< A pool of memory used in speeding up instanced rendering.
         GLuint                                              m_hexTexture    { 0 };          //!< The ID of the hex texture to be drawn on Sponza.
 
         #pragma endregion
@@ -104,18 +105,14 @@ class MyView final : public tygra::WindowViewDelegate
 
 #pragma region OpenGL creation
 
-/// <summary> 
-/// Compiles a shader from a file located on the machine. 
+/// <summary> Compiles a shader from a file located on the machine. </summary>
 /// <returns> Returns the OpenGL ID of the compiled shader, 0 means an error occurred. </returns>
-/// </summary>
 /// <param name="fileLocation"> The location of the shader file. </param>
 /// <param name="shader"> The type of shader to compile. </param>
 GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType shader);
 
 
-/// <summary> 
-/// Attaches a shader to the given program. It will also fill the shader with the attributes specified. 
-/// </summary>
+/// <summary> Attaches a shader to the given program. It will also fill the shader with the attributes specified. </summary>
 /// <param name="program"> The ID of the OpenGL program to attach the shader to. </param>
 /// <param name="shader"> The ID of the OpenGL shader we will be attaching. </param>
 /// <param name="attributes"> An array of attributes to bind to the shader. </param>

@@ -93,6 +93,8 @@ void MyView::windowViewDidStop(std::shared_ptr<tygra::Window> window)
         glDeleteVertexArrays (1, &mesh.vao);
     }
 
+    glDeleteBuffers (1, &m_instancePool);
+
     // Delete all textures.
     glDeleteTextures (1, &m_hexTexture);
 }
@@ -131,6 +133,9 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_2D, m_hexTexture);
 
+    // Bind the instance pool as the active buffer.
+    glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
+
     // Iterate through each mesh using instance rendering to reduce GL calls.
     for (const auto& pair : m_meshes)
     {
@@ -143,12 +148,10 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
         {
             // Cache access to the current mesh.
             const auto& mesh    = pair.second;
-
-            // Set the instance-specific model and PVM matrices.
-            std::vector<glm::mat4> matrices { };
-            matrices.resize (size * 2);
-            //auto matrices       = static_cast<glm::mat4*> (glMapBuffer (GL_ARRAY_BUFFER, GL_WRITE_ONLY));
             
+            // Set the instance-specific model and PVM matrices.
+            auto matrices = static_cast<glm::mat4*> (glMapBuffer (GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+
             for (unsigned int i = 0; i < size; ++i)
             {
                 // Obtain the current instances model transformation.
@@ -162,11 +165,7 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
             }
 
             // Unmap the buffer captain!
-            //glUnmapBuffer (GL_ARRAY_BUFFER);
-
-            // Bind the buffer we store the instanced matrices in.
-            glBindBuffer (GL_ARRAY_BUFFER, mesh.vboTransforms);
-            glBufferData (GL_ARRAY_BUFFER, matrices.size() * sizeof (glm::mat4), matrices.data(), GL_DYNAMIC_DRAW);
+            glUnmapBuffer (GL_ARRAY_BUFFER);
 
             // Specify the VAO to use.
             glBindVertexArray (mesh.vao);
@@ -219,6 +218,9 @@ void MyView::buildMeshData()
     // Resize our vector to speed up the loading process.
     m_meshes.resize (meshes.size());
 
+    // Generate the instance pool buffer for the VAOs.
+    glGenBuffers (1, &m_instancePool);
+
     // Iterate through each mesh adding them to the map.
     for (unsigned int i = 0; i < meshes.size(); ++i)
     {
@@ -239,9 +241,8 @@ void MyView::buildMeshData()
         const auto& elements    = mesh.getElementArray();
         newMesh.elementCount    = elements.size();
 
-        // Fill the vertex buffer objects with data. The matrices VBO should be DYNAMIC_DRAW because it will be specified each frame.
+        // Fill the vertex buffer objects with data.
         fillVBO (newMesh.vboVertices, vertices, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        fillVBO (newMesh.vboTransforms, matrices, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
         fillVBO (newMesh.vboElements, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
 
         // Fill the vertex array object for rendering.
@@ -250,6 +251,8 @@ void MyView::buildMeshData()
         // Finally create the pair and add the mesh to the vector.
         m_meshes[i] = { mesh.getId(), std::move (newMesh) };
     }    
+
+    allocateInstancePool();
 }
 
 
@@ -286,13 +289,13 @@ void MyView::constructVAO (Mesh& mesh)
     glGenVertexArrays (1, &mesh.vao);
     glBindVertexArray (mesh.vao);
 
+    // Bind the element buffer to the VAO.
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, mesh.vboElements);
+
     // Enable each attribute pointer.
     glEnableVertexAttribArray (position);
     glEnableVertexAttribArray (normal);
     glEnableVertexAttribArray (textureCoord);
-
-    // Bind the element buffer to the VAO.
-    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, mesh.vboElements);
 
     // Begin creating the vertex attribute pointer from the interleaved buffer.
     glBindBuffer (GL_ARRAY_BUFFER, mesh.vboVertices);
@@ -303,15 +306,43 @@ void MyView::constructVAO (Mesh& mesh)
     glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
 
     // Now we need to create the instanced matrix attribute pointers.
-    glBindBuffer (GL_ARRAY_BUFFER, mesh.vboTransforms);
+    glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
 
     // We'll combine our matrices into a single VBO so we need the stride to be double.
     createInstancedMatrix4 (modelTransform, sizeof (glm::mat4) * 2);
-    createInstancedMatrix4 (pvmTransform, sizeof (glm::mat4) * 2, sizeof (glm::mat4));
+    createInstancedMatrix4 (pvmTransform,   sizeof (glm::mat4) * 2, sizeof (glm::mat4));
 
     // Unbind all buffers.
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);
+}
+
+
+void MyView::allocateInstancePool()
+{
+    // Pre-condition: We have a valid scene assigned.
+    if (m_scene)
+    {
+        // We'll need to keep track of the highest number of instances in the scene.
+        size_t highest = 0;
+
+        for (const auto& pair : m_meshes)
+        {
+            // Obtain the number of instances for the current mesh.
+            const size_t instances = m_scene->getInstancesByMeshId (pair.first).size();
+
+            // Update the highest value if necessary.
+            if (instances > highest)
+            {
+                highest = instances;
+            }
+        }
+
+        // Finally resize the buffer to the correct size. We need to store two matrices per instance.
+        glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
+        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * highest * 2, nullptr, GL_DYNAMIC_DRAW);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
+    }
 }
 
 #pragma endregion
