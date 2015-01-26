@@ -92,12 +92,12 @@ class MyView final : public tygra::WindowViewDelegate
 
         #pragma region Implementation data
 
-        GLuint                                          m_program       { 0 };          //!< The ID of the OpenGL program created and used to draw Sponza.
-        float                                           m_aspectRatio   { 0.f };        //!< The calculated aspect ratio of the foreground resolution for the application.
+        GLuint                                              m_program       { 0 };          //!< The ID of the OpenGL program created and used to draw Sponza.
+        float                                               m_aspectRatio   { 0.f };        //!< The calculated aspect ratio of the foreground resolution for the application.
 
-        std::shared_ptr<const SceneModel::Context>      m_scene         { nullptr };    //!< The sponza scene.
-        std::unordered_map<SceneModel::MeshId, Mesh>    m_meshes        { };            //!< The collection of meshes which will be used in rendering each mesh in the scene.
-        GLuint                                          m_hexTexture    { 0 };          //!< The ID of the hex texture to be drawn on Sponza.
+        std::shared_ptr<const SceneModel::Context>          m_scene         { nullptr };    //!< The sponza scene.
+        std::vector<std::pair<SceneModel::MeshId, Mesh>>    m_meshes        { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
+        GLuint                                              m_hexTexture    { 0 };          //!< The ID of the hex texture to be drawn on Sponza.
 
         #pragma endregion
 };
@@ -122,17 +122,13 @@ GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType 
 void attachShader (const GLuint program, const GLuint shader, const std::vector<GLchar*>& attributes);
 
 
-/// <summary> 
-/// Links all attached shaders together ready for use. 
+/// <summary> Links all attached shaders together ready for use. </summary>
 /// <returns> Returns whether the linking process was successful or not. </returns>
-/// </summary>
 /// <param name="program"> The ID of the OpenGL program which we will be linking together. </param>
 bool linkProgram (const GLuint program);
 
 
-/// <summary>
-/// Generates and fills a VBO with the given data.
-/// </summary>
+/// <summary> Generates and fills a VBO with the given data. </summary>
 /// <param name="vbo"> The empty VBO which will reflect the value of newly bound buffer. </param>
 /// <param name="data"> An array of data to fill the vbo with. </param>
 /// <param name="target"> The target buffer type, e.g. GL_ARRAY_BUFFER/GL_ELEMENT_ARRAY_BUFFER. </param>
@@ -146,12 +142,18 @@ template <typename T> void fillVBO (GLuint& vbo, const std::vector<T>& data, con
 }
 
 
-/// <summary>
-/// Generates and binds a texture buffer from the given file location.
-/// </summary>
+/// <summary> Creates an instanced glm::mat4 attribute on the currently bound VAO. This loops through each column enabling each glm::vec4 pointer. </summary>
+/// <param name="attribLocation"> The attribute location to start at, four locations will be used and invalid values will be ignore. </param>
+/// <param name="stride"> How many bytes are between consecutive attributes. </param>
+/// <param name="extraOffset"> Any additional offset which will be added to the matrix. </param>
+/// <param name="divisor"> How frequently the attribute should be updated between instances. </param>
+void createInstancedMatrix4 (const int attribLocation, const GLsizei stride, const int extraOffset = 0, const int divisor = 1);
+
+
+/// <summary> Generates a texture buffer from the given file location. </summary>
 /// <param name="textureBuffer"> The buffer to fill with the texture data. </param>
 /// <param name="fileLocation> The location of the texture file to load. </param>
-void bindTexture2D (GLuint& textureBuffer, const std::string& fileLocation);
+void generateTexture2D (GLuint& textureBuffer, const std::string& fileLocation);
 
 #pragma endregion
 

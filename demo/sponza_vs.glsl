@@ -23,6 +23,8 @@ void main()
     vec3 vertexColour = mat3 (modelTransform) * normal;
     normalColour = 0.5 + 0.5 * vertexColour;
     textureOut = textureCoord;
+
+    gl_Position = projectionTransform * viewTransform * modelTransform * vec4 (position, 1.0);
     
     gl_Position = pvmTransform * vec4 (position, 1.0);
 }

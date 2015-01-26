@@ -66,7 +66,7 @@ void MyView::windowViewWillStart(std::shared_ptr<tygra::Window> window)
     buildMeshData();
     
     // Finally load the hex texture.
-    bindTexture2D (m_hexTexture, "hex.png");    
+    generateTexture2D (m_hexTexture, "hex.png");    
 }
 
 
@@ -110,47 +110,75 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
     glClearColor (0.f, 0.1f, 0.f, 0.f);
     
     // Define matrices.
-    const auto& camera       = m_scene->getCamera();
-    const auto  projection   = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
-                view         = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
+    const auto& camera          = m_scene->getCamera();
+    const auto  projection      = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
+                view            = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
 
     // Specify shader program to use.
     glUseProgram (m_program);
 
     // Get uniform locations.
-    const auto  pvmID       = glGetUniformLocation (m_program, "projectionViewModel"),
-                modelID     = glGetUniformLocation (m_program, "modelTransform"),
-                textureID   = glGetUniformLocation (m_program, "textureSampler");
+    const auto  projectionID    = glGetUniformLocation (m_program, "projectionTransform"),
+                viewID          = glGetUniformLocation (m_program, "viewTransform"),
+                textureID       = glGetUniformLocation (m_program, "textureSampler");
 
-    // Set never changing uniforms.
+    // Set uniform variables.
+    glUniformMatrix4fv (projectionID, 1, GL_FALSE, glm::value_ptr (projection));
+    glUniformMatrix4fv (viewID, 1, GL_FALSE, glm::value_ptr (view));
     glUniform1i (textureID, 0);
 
     // Specify the texture to use.
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_2D, m_hexTexture);
 
-    // Prepare to render each object in the scene.
-    const auto& instances   = m_scene->getAllInstances();
+    // Iterate through each mesh using instance rendering to reduce GL calls.
+    for (const auto& pair : m_meshes)
+    {
+        // Obtain the each instance for the current mesh.
+        const auto& instances   = m_scene->getInstancesByMeshId (pair.first);
+        const auto size         = instances.size();
 
-    for (const auto& instance : instances)
-    {        
-        // Finish creating the required matricies.
-        const auto model    = glm::mat4 (instance.getTransformationMatrix());
-        const auto pvm      = projection * view * model;
+        // Check if we need to do any rendering at all.
+        if (size != 0)
+        {
+            // Cache access to the current mesh.
+            const auto& mesh    = pair.second;
 
-        // Specify uniform values.
-        glUniformMatrix4fv (pvmID, 1, GL_FALSE, glm::value_ptr (pvm));
-        glUniformMatrix4fv (modelID, 1, GL_FALSE, glm::value_ptr (model));
+            // Set the instance-specific model and PVM matrices.
+            std::vector<glm::mat4> matrices { };
+            matrices.resize (size * 2);
+            //auto matrices       = static_cast<glm::mat4*> (glMapBuffer (GL_ARRAY_BUFFER, GL_WRITE_ONLY));
+            
+            for (unsigned int i = 0; i < size; ++i)
+            {
+                // Obtain the current instances model transformation.
+                const auto& model       = static_cast<glm::mat4> (m_scene->getInstanceById (instances[i]).getTransformationMatrix());
+             
+                // We have both the model and pvm matrices in the buffer so we need an offset.
+                const auto offset       = i * 2;
 
-        // Obtain the correct mesh.
-        const auto& mesh    = m_meshes.at (instance.getMeshId());
+                matrices[offset]        = model;
+                matrices[offset + 1]    = projection * view * model;
+            }
 
-        // Specify VAO to use.
-        glBindVertexArray (mesh.vao);
+            // Unmap the buffer captain!
+            //glUnmapBuffer (GL_ARRAY_BUFFER);
 
-        // Draw.
-        glDrawElements (GL_TRIANGLES, mesh.elementCount, GL_UNSIGNED_INT, 0);
+            // Bind the buffer we store the instanced matrices in.
+            glBindBuffer (GL_ARRAY_BUFFER, mesh.vboTransforms);
+            glBufferData (GL_ARRAY_BUFFER, matrices.size() * sizeof (glm::mat4), matrices.data(), GL_DYNAMIC_DRAW);
+
+            // Specify the VAO to use.
+            glBindVertexArray (mesh.vao);
+            
+            // Finally draw all instances at the same time.
+            glDrawElementsInstanced (GL_TRIANGLES, mesh.elementCount, GL_UNSIGNED_INT, 0, size);
+        }
     }
+
+    // Unbind all buffers.
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+    glBindVertexArray (0);
 }
 
 #pragma endregion
@@ -188,19 +216,24 @@ void MyView::buildMeshData()
     const auto& builder = SceneModel::GeometryBuilder();
     const auto& meshes  = builder.getAllMeshes();
 
+    // Resize our vector to speed up the loading process.
+    m_meshes.resize (meshes.size());
+
     // Iterate through each mesh adding them to the map.
-    for (const auto& mesh : meshes)
+    for (unsigned int i = 0; i < meshes.size(); ++i)
     {
+        // Cache the current mesh.
+        const auto& mesh = meshes[i];
+        
+        // Initialise a new mesh.
+        Mesh newMesh { };
+
         // Obtain the required vertex information.
         std::vector<Vertex> vertices { };
         assembleVertices (vertices, mesh);
 
         // Create blank matrix information.
         std::vector<glm::mat4> matrices { };
-        matrices.resize (2);
-        
-        // Initialise a new mesh.
-        Mesh newMesh            = { };
         
         // Obtain the elements.
         const auto& elements    = mesh.getElementArray();
@@ -214,8 +247,8 @@ void MyView::buildMeshData()
         // Fill the vertex array object for rendering.
         constructVAO (newMesh);
 
-        // Finally add the mesh to the map.
-        m_meshes.emplace (mesh.getId(), std::move (newMesh));
+        // Finally create the pair and add the mesh to the vector.
+        m_meshes[i] = { mesh.getId(), std::move (newMesh) };
     }    
 }
 
@@ -253,49 +286,28 @@ void MyView::constructVAO (Mesh& mesh)
     glGenVertexArrays (1, &mesh.vao);
     glBindVertexArray (mesh.vao);
 
+    // Enable each attribute pointer.
+    glEnableVertexAttribArray (position);
+    glEnableVertexAttribArray (normal);
+    glEnableVertexAttribArray (textureCoord);
+
     // Bind the element buffer to the VAO.
     glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, mesh.vboElements);
 
     // Begin creating the vertex attribute pointer from the interleaved buffer.
-    glBindBuffer (GL_ARRAY_BUFFER, mesh.vboVertices);        
+    glBindBuffer (GL_ARRAY_BUFFER, mesh.vboVertices);
 
-    // Position data.
-    glVertexAttribPointer (position, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
-    glEnableVertexAttribArray (position);
-
-    // Normal data.
-    glVertexAttribPointer (normal, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
-    glEnableVertexAttribArray (normal);
-
-    // Texture co-ordinate data.
-    glVertexAttribPointer (textureCoord, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
-    glEnableVertexAttribArray (textureCoord);
-
+    // Set the properties of each attribute pointer.
+    glVertexAttribPointer (position,        3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
+    glVertexAttribPointer (normal,          3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
+    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
 
     // Now we need to create the instanced matrix attribute pointers.
     glBindBuffer (GL_ARRAY_BUFFER, mesh.vboTransforms);
 
-    // We need to go through each column of the matrices creating attribute pointers.
-    const int matrixColumns { 4 };
-    for (int i = 0; i < matrixColumns; ++i)
-    {
-        // Calculate the offsets for each column.
-        const auto modelOffset  = TGL_BUFFER_OFFSET (sizeof (glm::vec4) * i),
-                   pvmOffset    = TGL_BUFFER_OFFSET (sizeof (glm::mat4) + sizeof (glm::vec4) * i);
-
-        // Create the columns attribute pointer. We won't interleave the buffers.
-        glVertexAttribPointer (modelTransform, 4, GL_FLOAT, GL_FALSE, sizeof (glm::vec4), modelOffset);
-        glVertexAttribPointer (pvmTransform, 4, GL_FLOAT, GL_FALSE, sizeof (glm::vec4), pvmOffset);
-
-        // Enable each matrix.
-        glEnableVertexAttribArray (modelTransform + i);
-        glEnableVertexAttribArray (pvmTransform + i);
-
-        // Set the divisors for each matrix.
-        glVertexAttribDivisor (modelTransform + i, 1);
-        glVertexAttribDivisor (pvmTransform + i, 1);
-    }
-
+    // We'll combine our matrices into a single VBO so we need the stride to be double.
+    createInstancedMatrix4 (modelTransform, sizeof (glm::mat4) * 2);
+    createInstancedMatrix4 (pvmTransform, sizeof (glm::mat4) * 2, sizeof (glm::mat4));
 
     // Unbind all buffers.
     glBindBuffer (GL_ARRAY_BUFFER, 0);
@@ -396,7 +408,32 @@ bool linkProgram (const GLuint program)
 }
 
 
-void bindTexture2D (GLuint& textureBuffer, const std::string& fileLocation)
+void createInstancedMatrix4 (const int attribLocation, const GLsizei stride, const int extraOffset, const int divisor)
+{
+    // Pre-condition: A valid attribute location has been given.
+    if (attribLocation >= 0)
+    {
+        // We need to go through each column of the matrices creating attribute pointers.
+        const int matrixColumns { 4 };
+        for (int i = 0; i < matrixColumns; ++i)
+        {
+            const int current   { attribLocation + i };
+
+            // Enable each column and set the divisor.
+            glEnableVertexAttribArray (current);
+            glVertexAttribDivisor (current, divisor);
+
+            // Calculate the offsets for each column.
+            const auto offset = TGL_BUFFER_OFFSET (sizeof (glm::vec4) * i + extraOffset);
+
+            // Create the columns attribute pointer.
+            glVertexAttribPointer (current,  4, GL_FLOAT, GL_FALSE, stride, offset);
+        }
+    }
+}
+
+
+void generateTexture2D (GLuint& textureBuffer, const std::string& fileLocation)
 {
     // Attempt to load the image.
     tygra::Image image = tygra::imageFromPNG (fileLocation);
