@@ -17,6 +17,7 @@ struct Mesh final
 
     GLuint          vao             { 0 },  //!< The VertexArrayObject for the mesh.
                     vboVertices     { 0 },  //!< The interleaved VertexBufferObject with position vectors, normal vectors and texture co-ordinates.
+                    vboTransforms   { 0 },  //!< A VBO with instanced model and PVM transform information.
                     vboElements     { 0 };  //!< The VertexBufferObject for the element indices.
     unsigned int    elementCount    { 0 };  //!< Indicates how many elements there are.
 

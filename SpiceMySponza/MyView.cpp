@@ -171,7 +171,7 @@ void MyView::buildProgram()
     const auto fragmentShader                       = compileShaderFromFile (fragmentShaderLocation, ShaderType::Fragment);
     
     // Attach the shaders to the program we created.
-    const std::vector<GLchar*> vertexAttributes     = { "vertexPosition", "vertexNormal", "texturePoint" };
+    const std::vector<GLchar*> vertexAttributes     = { "position", "normal", "textureCoord", "modelTransform", "pvmTransform" };
     const std::vector<GLchar*> fragmentAttributes   = {  };
 
     attachShader (m_program, vertexShader, vertexAttributes);
@@ -194,6 +194,10 @@ void MyView::buildMeshData()
         // Obtain the required vertex information.
         std::vector<Vertex> vertices { };
         assembleVertices (vertices, mesh);
+
+        // Create blank matrix information.
+        std::vector<glm::mat4> matrices { };
+        matrices.resize (2);
         
         // Initialise a new mesh.
         Mesh newMesh            = { };
@@ -202,8 +206,9 @@ void MyView::buildMeshData()
         const auto& elements    = mesh.getElementArray();
         newMesh.elementCount    = elements.size();
 
-        // Fill the vertex buffer objects with data.
+        // Fill the vertex buffer objects with data. The matrices VBO should be DYNAMIC_DRAW because it will be specified each frame.
         fillVBO (newMesh.vboVertices, vertices, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+        fillVBO (newMesh.vboTransforms, matrices, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
         fillVBO (newMesh.vboElements, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
 
         // Fill the vertex array object for rendering.
@@ -236,6 +241,14 @@ void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::
 
 void MyView::constructVAO (Mesh& mesh)
 {
+    // Obtain the attribute pointer locations we'll be using to construct the VAO.
+    int position        { glGetAttribLocation (m_program, "position") };
+    int normal          { glGetAttribLocation (m_program, "normal") };
+    int textureCoord    { glGetAttribLocation (m_program, "textureCoord") };
+
+    int modelTransform  { glGetAttribLocation (m_program, "modelTransform") };
+    int pvmTransform    { glGetAttribLocation (m_program, "pvmTransform") };
+
     // Generate the VAO.
     glGenVertexArrays (1, &mesh.vao);
     glBindVertexArray (mesh.vao);
@@ -247,17 +260,43 @@ void MyView::constructVAO (Mesh& mesh)
     glBindBuffer (GL_ARRAY_BUFFER, mesh.vboVertices);        
 
     // Position data.
-    glEnableVertexAttribArray (0);
-    glVertexAttribPointer (0, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
+    glVertexAttribPointer (position, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
+    glEnableVertexAttribArray (position);
 
     // Normal data.
-    glEnableVertexAttribArray (1);
-    glVertexAttribPointer (1, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
+    glVertexAttribPointer (normal, 3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
+    glEnableVertexAttribArray (normal);
 
     // Texture co-ordinate data.
-    glEnableVertexAttribArray (2);
-    glVertexAttribPointer (2, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
-        
+    glVertexAttribPointer (textureCoord, 2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
+    glEnableVertexAttribArray (textureCoord);
+
+
+    // Now we need to create the instanced matrix attribute pointers.
+    glBindBuffer (GL_ARRAY_BUFFER, mesh.vboTransforms);
+
+    // We need to go through each column of the matrices creating attribute pointers.
+    const int matrixColumns { 4 };
+    for (int i = 0; i < matrixColumns; ++i)
+    {
+        // Calculate the offsets for each column.
+        const auto modelOffset  = TGL_BUFFER_OFFSET (sizeof (glm::vec4) * i),
+                   pvmOffset    = TGL_BUFFER_OFFSET (sizeof (glm::mat4) + sizeof (glm::vec4) * i);
+
+        // Create the columns attribute pointer. We won't interleave the buffers.
+        glVertexAttribPointer (modelTransform, 4, GL_FLOAT, GL_FALSE, sizeof (glm::vec4), modelOffset);
+        glVertexAttribPointer (pvmTransform, 4, GL_FLOAT, GL_FALSE, sizeof (glm::vec4), pvmOffset);
+
+        // Enable each matrix.
+        glEnableVertexAttribArray (modelTransform + i);
+        glEnableVertexAttribArray (pvmTransform + i);
+
+        // Set the divisors for each matrix.
+        glVertexAttribDivisor (modelTransform + i, 1);
+        glVertexAttribDivisor (pvmTransform + i, 1);
+    }
+
+
     // Unbind all buffers.
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);

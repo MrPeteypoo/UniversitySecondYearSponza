@@ -22,6 +22,7 @@ Mesh& Mesh::operator= (Mesh&& move)
     {
         vao             = std::move (move.vao);
         vboVertices     = std::move (move.vboVertices);
+        vboTransforms   = std::move (move.vboTransforms);
         vboElements     = std::move (move.vboElements);
         elementCount    = std::move (move.elementCount);
     }
