@@ -29,12 +29,20 @@ MyView& MyView::operator= (MyView&& move)
 {
     if (this != &move)
     {
-        m_program = std::move (move.m_program);
-        m_aspectRatio = std::move (move.m_aspectRatio);
+        m_program       = std::move (move.m_program);
+        m_aspectRatio   = std::move (move.m_aspectRatio);
 
-        m_scene = std::move (move.m_scene);
-        m_meshes = std::move (move.m_meshes);
-        m_hexTexture = std::move (move.m_hexTexture);
+        m_scene         = std::move (move.m_scene);
+        m_meshes        = std::move (move.m_meshes);
+
+        m_sceneVAO      = std::move (move.m_sceneVAO);
+        m_vertexVBO     = std::move (move.m_vertexVBO);
+        m_elementVBO    = std::move (move.m_elementVBO);
+
+        m_instancePool  = std::move (move.m_instancePool);
+        m_poolSize      = std::move (move.m_poolSize);
+
+        m_hexTexture    = std::move (move.m_hexTexture);
     }
 
     return *this;
@@ -84,15 +92,9 @@ void MyView::windowViewDidStop(std::shared_ptr<tygra::Window> window)
     glDeleteProgram (m_program);
     
     // Delete all VAOs and VBOs.
-    for (const auto& pair : m_meshes)
-    {
-        const auto& mesh = pair.second;
-
-        glDeleteBuffers (1, &mesh.vboVertices);
-        glDeleteBuffers (1, &mesh.vboElements);
-        glDeleteVertexArrays (1, &mesh.vao);
-    }
-
+    glDeleteVertexArrays (1, &m_sceneVAO);
+    glDeleteBuffers (1, &m_vertexVBO);
+    glDeleteBuffers (1, &m_elementVBO);
     glDeleteBuffers (1, &m_instancePool);
 
     // Delete all textures.
@@ -133,6 +135,9 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_2D, m_hexTexture);
 
+    // Specify the VAO to use.
+    glBindVertexArray (m_sceneVAO);
+
     // Bind the instance pool as the active buffer.
     glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
     
@@ -172,11 +177,8 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
             // Only buffer the required data to save time.
             glBufferSubData (GL_ARRAY_BUFFER, 0, instanceSize * size, matrices.data());
 
-            // Specify the VAO to use.
-            glBindVertexArray (mesh.vao);
-            
             // Finally draw all instances at the same time.
-            glDrawElementsInstanced (GL_TRIANGLES, mesh.elementCount, GL_UNSIGNED_INT, 0, size);
+            glDrawElementsInstancedBaseVertex (GL_TRIANGLES, mesh.elementCount, GL_UNSIGNED_INT, (GLvoid*) mesh.elementsOffset, size, mesh.verticesIndex);
         }
     }
 
@@ -223,41 +225,55 @@ void MyView::buildMeshData()
     // Resize our vector to speed up the loading process.
     m_meshes.resize (meshes.size());
 
-    // Generate the instance pool buffer for the VAOs.
-    glGenBuffers (1, &m_instancePool);
+    // Start by allocating enough memory in the VBOs to contain the scene.
+    size_t vertexSize { 0 }, elementSize { 0 };
+    calculateVBOSize (meshes, vertexSize, elementSize);
+    
+    allocateVBO (m_vertexVBO, vertexSize, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+    allocateVBO (m_elementVBO, elementSize, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+    
+    // Bind our VBOs.
+    glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
 
-    // Iterate through each mesh adding them to the map.
+    // Iterate through each mesh adding them to the mesh container.
+    GLint  vertexIndex      { 0 }; 
+    GLuint elementOffset    { 0 };
+    
     for (unsigned int i = 0; i < meshes.size(); ++i)
     {
         // Cache the current mesh.
-        const auto& mesh = meshes[i];
+        const auto& mesh        = meshes[i];
+        const auto& elements    = mesh.getElementArray();
         
         // Initialise a new mesh.
         Mesh newMesh { };
-
+        newMesh.verticesIndex   = vertexIndex;
+        newMesh.elementsOffset  = elementOffset;
+        newMesh.elementCount    = elements.size();
+        
         // Obtain the required vertex information.
         std::vector<Vertex> vertices { };
         assembleVertices (vertices, mesh);
 
-        // Create blank matrix information.
-        std::vector<glm::mat4> matrices { };
-        
-        // Obtain the elements.
-        const auto& elements    = mesh.getElementArray();
-        newMesh.elementCount    = elements.size();
-
         // Fill the vertex buffer objects with data.
-        fillVBO (newMesh.vboVertices, vertices, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-        fillVBO (newMesh.vboElements, elements, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+        glBufferSubData (GL_ARRAY_BUFFER,           vertexIndex * sizeof (Vertex),  vertices.size() * sizeof (Vertex),                  vertices.data());
+        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (SceneModel::InstanceId),  elements.data());
 
-        // Fill the vertex array object for rendering.
-        constructVAO (newMesh);
+        // The vertexIndex needs an actual index value whereas elementOffset needs to be in bytes.
+        vertexIndex += vertices.size();
+        elementOffset += elements.size() * sizeof (SceneModel::InstanceId);
 
         // Finally create the pair and add the mesh to the vector.
         m_meshes[i] = { mesh.getId(), std::move (newMesh) };
     }    
 
+    // Generate the instance pool buffer for the VAO.
+    glGenBuffers (1, &m_instancePool);
     allocateInstancePool();
+
+    // Now we can construct the VAO and begin rendering!
+    constructVAO();
 }
 
 
@@ -280,7 +296,7 @@ void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::
 }
 
 
-void MyView::constructVAO (Mesh& mesh)
+void MyView::constructVAO()
 {
     // Obtain the attribute pointer locations we'll be using to construct the VAO.
     int position        { glGetAttribLocation (m_program, "position") };
@@ -291,11 +307,11 @@ void MyView::constructVAO (Mesh& mesh)
     int pvmTransform    { glGetAttribLocation (m_program, "pvm") };
 
     // Generate the VAO.
-    glGenVertexArrays (1, &mesh.vao);
-    glBindVertexArray (mesh.vao);
+    glGenVertexArrays (1, &m_sceneVAO);
+    glBindVertexArray (m_sceneVAO);
 
     // Bind the element buffer to the VAO.
-    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, mesh.vboElements);
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
 
     // Enable each attribute pointer.
     glEnableVertexAttribArray (position);
@@ -303,7 +319,7 @@ void MyView::constructVAO (Mesh& mesh)
     glEnableVertexAttribArray (textureCoord);
 
     // Begin creating the vertex attribute pointer from the interleaved buffer.
-    glBindBuffer (GL_ARRAY_BUFFER, mesh.vboVertices);
+    glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
 
     // Set the properties of each attribute pointer.
     glVertexAttribPointer (position,        3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
@@ -447,6 +463,15 @@ bool linkProgram (const GLuint program)
 }
 
 
+void allocateVBO (GLuint& vbo, const size_t size, const GLenum target, const GLenum usage)
+{
+    glGenBuffers (1, &vbo);
+    glBindBuffer (target, vbo);
+    glBufferData (target, size, nullptr, usage);
+    glBindBuffer (target, 0);
+}
+
+
 void createInstancedMatrix4 (const int attribLocation, const GLsizei stride, const int extraOffset, const int divisor)
 {
     // Pre-condition: A valid attribute location has been given.
@@ -508,6 +533,24 @@ void generateTexture2D (GLuint& textureBuffer, const std::string& fileLocation)
         glGenerateMipmap (GL_TEXTURE_2D);
         glBindTexture (GL_TEXTURE_2D, 0);
     }
+}
+
+
+void calculateVBOSize (const std::vector<SceneModel::Mesh>& meshes, size_t& vertexSize, size_t& elementSize)
+{
+    // Create temporary accumlators.
+    size_t vertices { 0 }, elements { 0 };  
+
+    // We need to loop through each mesh adding up as we go along.
+    for (const auto& mesh : meshes)
+    {
+        vertices += mesh.getPositionArray().size();
+        elements += mesh.getElementArray().size();
+    }
+
+    // Calculate the final values.
+    vertexSize = vertices * sizeof (Vertex);
+    elementSize = elements * sizeof (unsigned int);
 }
 
 #pragma endregion
