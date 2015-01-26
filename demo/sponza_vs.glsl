@@ -1,21 +1,29 @@
 #version 330
 
-uniform mat4 projectionViewModel;
-uniform mat4 modelTransform;
+// Make the project and view transforms uniform across the application.
+uniform mat4 projection;
+uniform mat4 view;
 
-in vec3 vertexPosition;
-in vec3 vertexNormal;
-in vec2 texturePoint;
+// Use interleaved position, normal and texture co-ordinates.
+layout (location = 0)   in vec3 position;
+layout (location = 1)   in vec3 normal;
+layout (location = 2)   in vec2 textureCoord;
 
+// Use instance-specific model and PVM transforms.
+layout (location = 3)   in mat4 model;
+layout (location = 7)   in mat4 pvm;
+
+// Output the normal colour and texture co-ordinates of the vertex to the fragment shader.
 out vec3 normalColour;
 out vec2 textureOut;
 
 
 void main()
 {
-    vec3 vertexColour = mat3 (modelTransform) * vertexNormal;
+    vec3 vertexColour = mat3 (model) * normal;
     normalColour = 0.5 + 0.5 * vertexColour;
-    textureOut = texturePoint;
-	
-    gl_Position = projectionViewModel * vec4 (vertexPosition, 1.0);
+    textureOut = textureCoord;
+
+    //gl_Position = projection * view * model * vec4 (position, 1.0);
+    gl_Position = pvm * vec4 (position, 1.0);
 }
