@@ -67,7 +67,7 @@ class MyView final : public tygra::WindowViewDelegate
 
         #pragma endregion
 
-        #pragma region Utility functions
+        #pragma region Scene construction
 
         /// <summary> Will create the program then compile, attach and link all required shaders together. </summary>
         void buildProgram();

@@ -156,7 +156,7 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
 #pragma endregion
 
 
-#pragma region Utility functions
+#pragma region Scene construction
 
 void MyView::buildProgram()
 {
