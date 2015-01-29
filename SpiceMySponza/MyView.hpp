@@ -80,11 +80,11 @@ class MyView final : public tygra::WindowViewDelegate
         /// <param name="mesh"> The mesh to retrieve Vertex data from. </param>
         void assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh);
 
-        /// <summary> Constructs the VAO for the scene using an interleaved vertex VBO and instanced transform matrices. </summary>
-        void constructVAO();
-
         /// <summary> This will go through each mesh in the scene and buffer enough memory for the highest instance count in sponza. </summary>
         void allocateInstancePool();
+
+        /// <summary> Constructs the VAO for the scene using an interleaved vertex VBO and instanced transform matrices. </summary>
+        void constructVAO();
 
         #pragma endregion
 

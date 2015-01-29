@@ -296,6 +296,37 @@ void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::
 }
 
 
+void MyView::allocateInstancePool()
+{
+    // Pre-condition: We have a valid scene assigned.
+    if (m_scene)
+    {
+        // We'll need to keep track of the highest number of instances in the scene.
+        size_t highest = 0;
+
+        for (const auto& pair : m_meshes)
+        {
+            // Obtain the number of instances for the current mesh.
+            const size_t instances = m_scene->getInstancesByMeshId (pair.first).size();
+
+            // Update the highest value if necessary.
+            if (instances > highest)
+            {
+                highest = instances;
+            }
+        }
+
+        // We store two matrices per instance.
+        m_poolSize = highest * 2;
+
+        // Finally resize the buffer to the correct size.
+        glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
+        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
+        glBindBuffer (GL_ARRAY_BUFFER, 0);
+    }
+}
+
+
 void MyView::constructVAO()
 {
     // Obtain the attribute pointer locations we'll be using to construct the VAO.
@@ -336,37 +367,6 @@ void MyView::constructVAO()
     // Unbind all buffers.
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);
-}
-
-
-void MyView::allocateInstancePool()
-{
-    // Pre-condition: We have a valid scene assigned.
-    if (m_scene)
-    {
-        // We'll need to keep track of the highest number of instances in the scene.
-        size_t highest = 0;
-
-        for (const auto& pair : m_meshes)
-        {
-            // Obtain the number of instances for the current mesh.
-            const size_t instances = m_scene->getInstancesByMeshId (pair.first).size();
-
-            // Update the highest value if necessary.
-            if (instances > highest)
-            {
-                highest = instances;
-            }
-        }
-
-        // We store two matrices per instance.
-        m_poolSize = highest * 2;
-
-        // Finally resize the buffer to the correct size. We need to store two matrices per instance.
-        glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
-        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
-        glBindBuffer (GL_ARRAY_BUFFER, 0);
-    }
 }
 
 #pragma endregion
