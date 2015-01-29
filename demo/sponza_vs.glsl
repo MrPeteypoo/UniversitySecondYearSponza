@@ -1,29 +1,29 @@
+/// <summary> The vertex shader used in Spice My Sponza. Prepares the information required for the fragment shader. </summary>
+/// <namespace> GLSL::VERTEX </namespace>
+
 #version 330
 
-// Make the project and view transforms uniform across the application.
-uniform mat4 projection;
-uniform mat4 view;
+                        uniform mat4    projection;     //!< The projection transform which establishes the perspective of the vertex.
+                        uniform mat4    view;           //!< The view transform representing where the camera is looking.
 
-// Use interleaved position, normal and texture co-ordinates.
-layout (location = 0)   in vec3 position;
-layout (location = 1)   in vec3 normal;
-layout (location = 2)   in vec2 textureCoord;
+layout (location = 0)   in      vec3    position;       //!< The local position of the current vertex.
+layout (location = 1)   in      vec3    normal;         //!< The local normal vector of the current vertex.
+layout (location = 2)   in      vec2    textureCoord;   //!< The texture co-ordinates for the vertex, used for mapping a texture to the object.
+layout (location = 3)   in      mat4    model;          //!< The model transform representing the position and rotation of the object in world space.
+layout (location = 7)   in      mat4    pvm;            //!< A combined matrix of the project, view and model transforms.
 
-// Use instance-specific model and PVM transforms.
-layout (location = 3)   in mat4 model;
-layout (location = 7)   in mat4 pvm;
-
-// Output the normal colour and texture co-ordinates of the vertex to the fragment shader.
-out vec3 normalColour;
-out vec2 textureOut;
+                        out     vec3    worldPosition;  //!< The world position to be interpolated for the fragment shader.
+                        out     vec3    worldNormal;    //!< The world normal to be interpolated for the fragment shader.
+                        out     vec2    texturePoint;   //!< The texture co-ordinate for the fragment to use for texture mapping.
 
 
 void main()
 {
-    vec3 vertexColour = mat3 (model) * normal;
-    normalColour = 0.5 + 0.5 * vertexColour;
-    textureOut = textureCoord;
+    // Deal with the outputs first.
+    worldPosition = mat4x3 (model) * vec4 (position, 1.0);
+    worldNormal = mat3 (model) * position;
+    texturePoint = textureCoord;
 
-    //gl_Position = projection * view * model * vec4 (position, 1.0);
+    // Place the vertex in the correct position on-screen.
     gl_Position = pvm * vec4 (position, 1.0);
 }
