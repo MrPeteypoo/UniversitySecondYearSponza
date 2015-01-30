@@ -52,7 +52,7 @@ class MyView final : public tygra::WindowViewDelegate
 
         struct Material;
         struct Mesh;
-        struct UniformData;
+        class UniformData;
 
         #pragma region Window functions
 

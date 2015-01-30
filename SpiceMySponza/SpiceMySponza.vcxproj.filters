@@ -132,6 +132,9 @@
     <ClInclude Include="Misc\Vertex.h">
       <Filter>Misc</Filter>
     </ClInclude>
+    <ClInclude Include="Utility\Maths.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\demo\sponza_vs.glsl">

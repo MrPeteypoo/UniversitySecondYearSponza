@@ -149,6 +149,7 @@
     <ClInclude Include="MyView\Mesh.h" />
     <ClInclude Include="MyView\MyView.h" />
     <ClInclude Include="MyView\UniformData.h" />
+    <ClInclude Include="Utility\Maths.h" />
     <ClInclude Include="Utility\OpenGL.h" />
   </ItemGroup>
   <ItemGroup>

@@ -4,7 +4,7 @@
 #version 330
 
 
-#define MAX_LIGHTS 100
+#define MAX_LIGHTS 25
 
 
 /// <summary>

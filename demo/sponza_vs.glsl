@@ -3,22 +3,6 @@
 
 #version 330
 
-#define MAX_LIGHTS 100
-
-
-/// <summary> The uniform buffer for each shader. </summary>
-layout (packed, std140) uniform ubo
-{
-    mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
-    mat4    view;               //!< The view transform representing where the camera is looking.
-
-    vec3    cameraPosition;     //!< Contains the position of the camera in world space.
-    vec3    ambience;           //!< The ambient lighting in the scene.
-    
-    int     numLights;          //!< The number of lights in use.
-    Light   lights[MAX_LIGHTS]; //!< The lighting data of each light in the scene.
-};
-
 
 layout (location = 0)   in      vec3    position;       //!< The local position of the current vertex.
 layout (location = 1)   in      vec3    normal;         //!< The local normal vector of the current vertex.
