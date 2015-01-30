@@ -15,7 +15,7 @@ layout (location = 7)   in      mat4    pvm;            //!< A combined matrix o
                         out     vec3    worldPosition;  //!< The world position to be interpolated for the fragment shader.
                         out     vec3    worldNormal;    //!< The world normal to be interpolated for the fragment shader.
                         out     vec2    texturePoint;   //!< The texture co-ordinate for the fragment to use for texture mapping.
-                        out     int     instanceID;     //!< Allows the fragment shader to fetch the correct colour data.
+flat                    out     int     instanceID;     //!< Allows the fragment shader to fetch the correct colour data.
 
 
 void main()

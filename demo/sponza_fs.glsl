@@ -13,6 +13,7 @@ struct Light
     vec3    position;   //!< The world position of the light in the scene.
     vec3    direction;  //!< The direction of the light.
     vec3    colour;     //!< The un-attenuated colour of the light.
+
     float   coneAngle;  //!< The angle of the light cone in degrees.
     float   cConstant;  //!< The constant co-efficient for the attenutation formula.
     float   cQuadratic; //!< The quadratic co-efficient for the attenuation formula.
@@ -63,11 +64,16 @@ vec3 cameraPointLight();
 
 //float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
 
-const float ka  = 0.2;
+// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Li.N) + Ks (Li.Rv))
+// Ia   = Ambient scene light.
+// Ka   = Ambient map.
+// Il,n = Current light colour.
+// Kd   = Diffuse co-efficient.
+// Ks   = Specular co-efficient.
 const float kd  = 0.5;
 const float ks  = 0.5;
 
-vec3 ambient    = ambience * ka;
+vec3 ambientMap = vec3 (1.0, 1.0, 1.0);
 vec3 diffuse    = vec3 (1.0, 1.0, 1.0) * kd;
 vec3 specular   = vec3 (1.0, 1.0, 1.0) * ks;
 float shininess = 16.0;
@@ -120,7 +126,7 @@ void main()
     }*/
     
     // Outcome.
-    fragmentColour = vec4 (ambient + lighting, 1.0);
+    fragmentColour = vec4 (ambience * ambientMap + lighting, 1.0);
 }
 
 
@@ -148,7 +154,7 @@ vec3 cameraPointLight()
     float distance = length (cameraPosition - Q);
     vec3 L = (cameraPosition - Q) / distance;
 
-    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 500.0, false);
+    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 100.0, false);
     
     float lambertian = max (dot (L, N), 0);
 
