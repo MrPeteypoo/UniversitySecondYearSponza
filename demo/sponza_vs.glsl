@@ -3,8 +3,22 @@
 
 #version 330
 
-                        uniform mat4    projection;     //!< The projection transform which establishes the perspective of the vertex.
-                        uniform mat4    view;           //!< The view transform representing where the camera is looking.
+#define MAX_LIGHTS 100
+
+
+/// <summary> The uniform buffer for each shader. </summary>
+layout (packed, std140) uniform ubo
+{
+    mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
+    mat4    view;               //!< The view transform representing where the camera is looking.
+
+    vec3    cameraPosition;     //!< Contains the position of the camera in world space.
+    vec3    ambience;           //!< The ambient lighting in the scene.
+    
+    int     numLights;          //!< The number of lights in use.
+    Light   lights[MAX_LIGHTS]; //!< The lighting data of each light in the scene.
+};
+
 
 layout (location = 0)   in      vec3    position;       //!< The local position of the current vertex.
 layout (location = 1)   in      vec3    normal;         //!< The local normal vector of the current vertex.
@@ -12,6 +26,7 @@ layout (location = 2)   in      vec2    textureCoord;   //!< The texture co-ordi
 
 layout (location = 3)   in      mat4    model;          //!< The model transform representing the position and rotation of the object in world space.
 layout (location = 7)   in      mat4    pvm;            //!< A combined matrix of the project, view and model transforms.
+
 
                         out     vec3    worldPosition;  //!< The world position to be interpolated for the fragment shader.
                         out     vec3    worldNormal;    //!< The world normal to be interpolated for the fragment shader.
@@ -23,7 +38,7 @@ void main()
 {
     // Deal with the outputs first.
     worldPosition = mat4x3 (model) * vec4 (position, 1.0);
-    worldNormal = mat3 (model) * position;
+    worldNormal = mat3 (model) * normal;
     texturePoint = textureCoord;
     instanceID = gl_InstanceID;
 

@@ -5,8 +5,11 @@
 
 
 // Engine headers.
-#include <MyView.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
+
+// Personal headers.
+#include <MyView/MyView.h>
 
 
 /// <summary> 

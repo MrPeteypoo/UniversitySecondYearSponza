@@ -3,14 +3,47 @@
 
 #version 330
 
-        uniform samplerBuffer   materialTBO;    //!< A texture buffer filled with the required diffuse and specular properties for the material.
+
+#define MAX_LIGHTS 100
+
+
+/// <summary>
+/// A structure containing information regarding to a light source in the scene.
+/// </summary>
+struct Light
+{
+    vec3    position;   //!< The world position of the light in the scene.
+    vec3    direction;  //!< The direction of the light.
+    vec3    colour;     //!< The un-attenuated colour of the light.
+    float   coneAngle;  //!< The angle of the light cone in degrees.
+    float   cConstant;  //!< The constant co-efficient for the attenutation formula.
+    float   cQuadratic; //!< The quadratic co-efficient for the attenuation formula.
+};
+
+
+/// <summary> The uniform buffer for each shader. </summary>
+layout (packed, std140) uniform ubo
+{
+    mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
+    mat4    view;               //!< The view transform representing where the camera is looking.
+
+    vec3    cameraPosition;     //!< Contains the position of the camera in world space.
+    vec3    ambience;           //!< The ambient lighting in the scene.
+    
+    int     numLights;          //!< The number of lights in use.
+    Light   lights[MAX_LIGHTS]; //!< The lighting data of each light in the scene.
+};
+
+
+        uniform samplerBuffer   materialBuffer; //!< A texture buffer filled with the required diffuse and specular properties for the material.
         uniform sampler2D       textureSampler; //!< The desired texture to apply to the particular pixel.
-        uniform vec3            cameraPosition; //!< Contains the position of the camera in world space.
+
 
         in      vec3            worldPosition;  //!< The fragments position vector in world space.
         in      vec3            worldNormal;    //!< The fragments normal vector in world space.
         in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
 flat    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
+
 
         out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
 
@@ -32,11 +65,11 @@ vec3 cameraPointLight();
 
 //float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
 
-const float ka  = 0.0;
-const float kd  = 1.0;
+const float ka  = 0.2;
+const float kd  = 0.8;
 const float ks  = 0.0;
 
-vec3 ambient    = vec3 (1.0, 1.0, 1.0) * ka;
+vec3 ambient    = ambience * ka;
 vec3 diffuse    = vec3 (1.0, 1.0, 1.0) * kd;
 vec3 specular   = vec3 (1.0, 1.0, 1.0) * ks;
 float shininess = 16.0;
@@ -97,8 +130,8 @@ void obtainMaterialProperties()
 {
     // We can use the instance ID to reconstruct the diffuse and specular colours from the RGBA material buffer.
     // Each instanceID is allocated 16 bytes of data for the diffuse colour and 16 bytes for the specular colour.
-    vec4 diffusePart    = texelFetch (materialTBO, instanceID * 2);
-    vec4 specularPart   = texelFetch (materialTBO, instanceID * 2 + 1);
+    vec4 diffusePart    = texelFetch (materialBuffer, instanceID * 2);
+    vec4 specularPart   = texelFetch (materialBuffer, instanceID * 2 + 1);
     
     // The alpha value of the diffuse is unused.
     diffuse = vec3 (diffusePart.r, diffusePart.g, diffusePart.b) * kd;
@@ -117,7 +150,7 @@ vec3 cameraPointLight()
     float distance = length (cameraPosition - Q);
     vec3 L = (cameraPosition - Q) / distance;
 
-    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 250.0, true);
+    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 50.0, false);
     
     float lambertian = max (dot (L, N), 0);
 
@@ -149,7 +182,7 @@ float pointLightAttenuation (const float distance, const float range, bool useSm
 
     // Start by calculating the attentuation constants.
     const float kc = 1.0;
-    const float kl = 0.1;
+    const float kl = 0.005;
     float kq = 1.0 / (range * range * 0.01);
     
     // Calculate the final attenuation value.

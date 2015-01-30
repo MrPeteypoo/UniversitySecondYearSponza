@@ -3,7 +3,7 @@
 #include <iostream>
 
 #include <tygra/Window.hpp>
-#include "MyController.hpp"
+#include <Misc/MyController.h>
 
 int main(int argc, char *argv[])
 {

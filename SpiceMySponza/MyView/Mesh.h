@@ -4,8 +4,8 @@
 #define         _MY_VIEW_MESH_
 
 
-// Engine headers.
-#include <MyView.hpp>
+// Personal headers.
+#include <MyView/MyView.h>
 
 
 // Using declarations.

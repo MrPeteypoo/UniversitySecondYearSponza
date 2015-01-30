@@ -12,7 +12,10 @@
 // Engine headers.
 #include <SceneModel/SceneModel_fwd.hpp>
 #include <tygra/WindowViewDelegate.hpp>
-#include <OpenGL.hpp>
+
+
+// Personal headers.
+#include <Utility/OpenGL.h>
 
 
 // Forward declarations.
@@ -49,6 +52,7 @@ class MyView final : public tygra::WindowViewDelegate
 
         struct Material;
         struct Mesh;
+        struct UniformData;
 
         #pragma region Window functions
 
@@ -91,23 +95,24 @@ class MyView final : public tygra::WindowViewDelegate
 
         #pragma region Implementation data
         
-        GLuint                                                  m_program       { 0 };          //!< The ID of the OpenGL program created and used to draw Sponza.
-        float                                                   m_aspectRatio   { 0.f };        //!< The calculated aspect ratio of the foreground resolution for the application.
+        GLuint                                                  m_program           { 0 };          //!< The ID of the OpenGL program created and used to draw Sponza.
+        float                                                   m_aspectRatio       { 0.f };        //!< The calculated aspect ratio of the foreground resolution for the application.
 
-        GLuint                                                  m_sceneVAO      { 0 };          //!< A Vertex Array Object for the entire scene.
-        GLuint                                                  m_vertexVBO     { 0 };          //!< A Vertex Buffer Object which contains the data of every mesh in the scene.
-        GLuint                                                  m_elementVBO    { 0 };          //!< A Vertex Buffer Object with the elements data for every mesh in the scene.
+        GLuint                                                  m_sceneVAO          { 0 };          //!< A Vertex Array Object for the entire scene.
+        GLuint                                                  m_vertexVBO         { 0 };          //!< A Vertex Buffer Object which contains the data of every mesh in the scene.
+        GLuint                                                  m_elementVBO        { 0 };          //!< A Vertex Buffer Object with the elements data for every mesh in the scene.
+        GLuint                                                  m_uniformUBO        { 0 };          //!< A Uniform Buffer Object which contains scene uniform data.        
 
-        GLuint                                                  m_matricesPool  { 0 };          //!< A pool of model and PVM matrices used in speeding up instanced rendering.
-        GLuint                                                  m_materialPool  { 0 };          //!< A pool of material diffuse and specular colours, enables instanced rendering.
-        size_t                                                  m_poolSize      { 0 };          //!< The current size of the pool, useful for optimising rendering.
+        GLuint                                                  m_matricesPool      { 0 };          //!< A pool of model and PVM matrices used in speeding up instanced rendering.
+        GLuint                                                  m_materialPool      { 0 };          //!< A pool of material diffuse and specular colours, enables instanced rendering.
+        size_t                                                  m_poolSize          { 0 };          //!< The current size of the pool, useful for optimising rendering.
 
-        GLuint                                                  m_materialTBO   { 0 };          //!< The ID of the materials texture which points to the material pool buffer.
-        GLuint                                                  m_hexTexture    { 0 };          //!< The ID of the hex texture to be drawn on Sponza.
+        GLuint                                                  m_materialBuffer    { 0 };          //!< The ID of the materials texture which points to the material pool buffer.
+        GLuint                                                  m_hexTexture        { 0 };          //!< The ID of the hex texture to be drawn on Sponza.
 
-        std::shared_ptr<const SceneModel::Context>              m_scene         { nullptr };    //!< The sponza scene containing instance and camera information.
-        std::vector<std::pair<SceneModel::MeshId, Mesh*>>       m_meshes        { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
-        std::unordered_map<SceneModel::MaterialId, Material*>   m_materials     { };            //!< A map containing each material used for rendering.
+        std::shared_ptr<const SceneModel::Context>              m_scene             { nullptr };    //!< The sponza scene containing instance and camera information.
+        std::vector<std::pair<SceneModel::MeshId, Mesh*>>       m_meshes            { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
+        std::unordered_map<SceneModel::MaterialId, Material*>   m_materials         { };            //!< A map containing each material used for rendering.
 
         #pragma endregion
 };

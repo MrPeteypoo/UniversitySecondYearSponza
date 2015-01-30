@@ -118,18 +118,19 @@
     <ClCompile Include="..\external\src\tygra\FileHelper.cpp" />
     <ClCompile Include="..\external\src\tygra\Window.cpp" />
     <ClCompile Include="main.cpp" />
-    <ClCompile Include="Material.cpp">
+    <ClCompile Include="Misc\MyController.cpp" />
+    <ClCompile Include="Misc\Vertex.cpp" />
+    <ClCompile Include="MyView\Material.cpp">
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)MyMaterial</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)MyMaterial</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="Mesh.cpp">
+    <ClCompile Include="MyView\Mesh.cpp">
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)MyMesh</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)MyMesh</ObjectFileName>
     </ClCompile>
-    <ClCompile Include="MyController.cpp" />
-    <ClCompile Include="MyView.cpp" />
-    <ClCompile Include="OpenGL.cpp" />
-    <ClCompile Include="Vertex.cpp" />
+    <ClCompile Include="MyView\MyView.cpp" />
+    <ClCompile Include="MyView\UniformData.cpp" />
+    <ClCompile Include="Utility\OpenGL.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\include\SceneModel\Camera.hpp" />
@@ -142,12 +143,13 @@
     <ClInclude Include="..\external\include\SceneModel\SceneModel.hpp" />
     <ClInclude Include="..\external\include\SceneModel\SceneModel_fwd.hpp" />
     <ClInclude Include="..\external\src\SceneModel\FirstPersonMovement.hpp" />
-    <ClInclude Include="Material.hpp" />
-    <ClInclude Include="Mesh.hpp" />
-    <ClInclude Include="MyController.hpp" />
-    <ClInclude Include="MyView.hpp" />
-    <ClInclude Include="OpenGL.hpp" />
-    <ClInclude Include="Vertex.hpp" />
+    <ClInclude Include="Misc\MyController.h" />
+    <ClInclude Include="Misc\Vertex.h" />
+    <ClInclude Include="MyView\Material.h" />
+    <ClInclude Include="MyView\Mesh.h" />
+    <ClInclude Include="MyView\MyView.h" />
+    <ClInclude Include="MyView\UniformData.h" />
+    <ClInclude Include="Utility\OpenGL.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\demo\sponza_fs.glsl" />

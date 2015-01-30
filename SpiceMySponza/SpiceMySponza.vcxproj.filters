@@ -1,15 +1,6 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
-    <Filter Include="Source Files">
-      <UniqueIdentifier>{61856a5b-3a54-45de-a597-99e3d9a759db}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Shader Files">
-      <UniqueIdentifier>{e36f76a8-f65c-4afd-b039-29b35d29dae4}</UniqueIdentifier>
-    </Filter>
-    <Filter Include="Header Files">
-      <UniqueIdentifier>{c3c0dcf7-d204-4ca3-9adb-b94d6ad90237}</UniqueIdentifier>
-    </Filter>
     <Filter Include="External">
       <UniqueIdentifier>{503669be-6b85-4a59-876f-7c5213af31d0}</UniqueIdentifier>
     </Filter>
@@ -22,17 +13,20 @@
     <Filter Include="External\SceneModel">
       <UniqueIdentifier>{19dd60ce-03c7-4c6a-9a30-703490d9d5c2}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Misc">
+      <UniqueIdentifier>{7f567025-4bd6-4704-aca6-1e321230b7ee}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="MyView">
+      <UniqueIdentifier>{055e31f4-8896-4c3b-b3cb-bfc973d011da}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Utility">
+      <UniqueIdentifier>{30e8595a-fc07-45db-8580-7f2b3ec65fd3}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{e36f76a8-f65c-4afd-b039-29b35d29dae4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="main.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MyController.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MyView.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\external\src\tgl\tgl.c">
       <Filter>External\tgl</Filter>
     </ClCompile>
@@ -63,26 +57,30 @@
     <ClCompile Include="..\external\src\SceneModel\Context.cpp">
       <Filter>External\SceneModel</Filter>
     </ClCompile>
-    <ClCompile Include="Mesh.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Utility\OpenGL.cpp">
+      <Filter>Utility</Filter>
     </ClCompile>
-    <ClCompile Include="Vertex.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Misc\Vertex.cpp">
+      <Filter>Misc</Filter>
     </ClCompile>
-    <ClCompile Include="OpenGL.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="Misc\MyController.cpp">
+      <Filter>Misc</Filter>
     </ClCompile>
-    <ClCompile Include="Material.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="MyView\MyView.cpp">
+      <Filter>MyView</Filter>
     </ClCompile>
+    <ClCompile Include="MyView\UniformData.cpp">
+      <Filter>MyView</Filter>
+    </ClCompile>
+    <ClCompile Include="MyView\Mesh.cpp">
+      <Filter>MyView</Filter>
+    </ClCompile>
+    <ClCompile Include="MyView\Material.cpp">
+      <Filter>MyView</Filter>
+    </ClCompile>
+    <ClCompile Include="main.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="MyController.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MyView.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\external\include\SceneModel\GeometryBuilder.hpp">
       <Filter>External\SceneModel</Filter>
     </ClInclude>
@@ -113,25 +111,34 @@
     <ClInclude Include="..\external\src\SceneModel\FirstPersonMovement.hpp">
       <Filter>External\SceneModel</Filter>
     </ClInclude>
-    <ClInclude Include="Mesh.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="Utility\OpenGL.h">
+      <Filter>Utility</Filter>
     </ClInclude>
-    <ClInclude Include="Vertex.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="MyView\Material.h">
+      <Filter>MyView</Filter>
     </ClInclude>
-    <ClInclude Include="OpenGL.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="MyView\Mesh.h">
+      <Filter>MyView</Filter>
     </ClInclude>
-    <ClInclude Include="Material.hpp">
-      <Filter>Header Files</Filter>
+    <ClInclude Include="MyView\MyView.h">
+      <Filter>MyView</Filter>
+    </ClInclude>
+    <ClInclude Include="MyView\UniformData.h">
+      <Filter>MyView</Filter>
+    </ClInclude>
+    <ClInclude Include="Misc\MyController.h">
+      <Filter>Misc</Filter>
+    </ClInclude>
+    <ClInclude Include="Misc\Vertex.h">
+      <Filter>Misc</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\demo\sponza_vs.glsl">
-      <Filter>Shader Files</Filter>
+      <Filter>Shaders</Filter>
     </None>
     <None Include="..\demo\sponza_fs.glsl">
-      <Filter>Shader Files</Filter>
+      <Filter>Shaders</Filter>
     </None>
   </ItemGroup>
 </Project>

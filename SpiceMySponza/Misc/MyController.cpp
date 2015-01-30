@@ -1,5 +1,5 @@
-#include "MyController.hpp"
-#include "MyView.hpp"
+#include "MyController.h"
+#include <MyView/MyView.h>
 #include <SceneModel/SceneModel.hpp>
 #include <tygra/Window.hpp>
 #include <iostream>

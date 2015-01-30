@@ -1,4 +1,4 @@
-#include "MyView.hpp"
+#include "MyView.h"
 
 
 
@@ -13,10 +13,14 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <SceneModel/SceneModel.hpp>
 #include <tgl/tgl.h>
-#include <Material.hpp>
-#include <Mesh.hpp>
-#include <OpenGL.hpp>
-#include <Vertex.hpp>
+
+
+
+// Personal headers.
+#include <Misc/Vertex.h>
+#include <MyView/Material.h>
+#include <MyView/Mesh.h>
+#include <Utility/OpenGL.h>
 
 
 
@@ -49,7 +53,7 @@ MyView& MyView::operator= (MyView&& move)
         m_materialPool  = std::move (move.m_materialPool);
         m_poolSize      = std::move (move.m_poolSize);
 
-        m_materialTBO   = std::move (move.m_materialTBO);
+        m_materialBuffer   = std::move (move.m_materialBuffer);
         m_hexTexture    = std::move (move.m_hexTexture);
 
         m_scene         = std::move (move.m_scene);
@@ -91,7 +95,7 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
     // Finally load the textures.
     util::generateTexture2D (m_hexTexture, "hex.png");
     glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialBuffer);
     glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
 }
 
@@ -117,7 +121,7 @@ void MyView::windowViewDidStop (std::shared_ptr<tygra::Window> window)
     glDeleteBuffers (1, &m_matricesPool);
 
     // Delete all textures.
-    glDeleteTextures (1, &m_materialTBO);
+    glDeleteTextures (1, &m_materialBuffer);
     glDeleteTextures (1, &m_hexTexture);
 }
 
@@ -144,22 +148,25 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     // Get uniform locations.
     const auto  projectionID    = glGetUniformLocation (m_program, "projection"),
                 viewID          = glGetUniformLocation (m_program, "view"),
-
-                textureID       = glGetUniformLocation (m_program, "textureSampler"),
-                cameraPosID     = glGetUniformLocation (m_program, "cameraPosition");
+                
+                cameraPosID     = glGetUniformLocation (m_program, "cameraPosition"),
+                ambienceID      = glGetUniformLocation (m_program, "ambience");
 
     // Set uniform variables.
     glUniformMatrix4fv (projectionID, 1, GL_FALSE, glm::value_ptr (projection));
     glUniformMatrix4fv (viewID, 1, GL_FALSE, glm::value_ptr (view));
+
     glUniform3fv (cameraPosID, 1, glm::value_ptr (camera.getPosition()));
-    glUniform1i (textureID, 0);
+    glUniform3fv (ambienceID, 1, glm::value_ptr (m_scene->getAmbientLightIntensity()));
+
+    const auto& light = m_scene->getAllLights()[0];
 
     // Specify the VAO to use.
     glBindVertexArray (m_sceneVAO);
 
     // Specify the textures to use.
     glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialBuffer);
 
     glActiveTexture (GL_TEXTURE1);
     glBindTexture (GL_TEXTURE_2D, m_hexTexture);
@@ -216,7 +223,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
                 }
             }
 
-            // Only overwrite the required data to speed up the buffering process.
+            // Only overwrite the required data to speed up the buffering process. Avoid glMapBuffer because it's ridiculous slow in this case.
             glBufferSubData (GL_ARRAY_BUFFER, 0, sizeof (glm::mat4) * 2 * size, matrices.data());
             glBufferSubData (GL_TEXTURE_BUFFER, 0, sizeof (Material) * size, materials.data());
             

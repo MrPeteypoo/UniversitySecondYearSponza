@@ -1,4 +1,4 @@
-#include "OpenGL.hpp"
+#include "OpenGL.h"
 
 
 
@@ -11,7 +11,11 @@
 #include <SceneModel/Mesh.hpp>
 #include <tgl/tgl.h>
 #include <tygra/FileHelper.hpp>
-#include <Vertex.hpp>
+
+
+
+// Personal headers.
+#include <Misc/Vertex.h>
 
 
 
