@@ -1,7 +1,11 @@
 #pragma once
 
-#if !defined    _MESH_
-#define         _MESH_
+#if !defined    _MY_VIEW_MESH_
+#define         _MY_VIEW_MESH_
+
+
+// Engine headers.
+#include <MyView.hpp>
 
 
 // Using declarations.
@@ -12,7 +16,7 @@ using GLuint = unsigned int;
 /// <summary> 
 /// A basic mesh structure used to hold the required data for rendering a mesh using OpenGL. 
 /// </summary>
-struct Mesh final
+struct MyView::Mesh final
 {
     #pragma region Implementation data
 
@@ -35,4 +39,4 @@ struct Mesh final
     #pragma endregion
 };
 
-#endif // _MESH_
+#endif // _MY_VIEW_MESH_

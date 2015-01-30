@@ -118,12 +118,17 @@
     <ClCompile Include="..\external\src\tygra\FileHelper.cpp" />
     <ClCompile Include="..\external\src\tygra\Window.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Material.cpp">
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)MyMaterial</ObjectFileName>
+      <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)MyMaterial</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="Mesh.cpp">
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntDir)MyMesh</ObjectFileName>
       <ObjectFileName Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntDir)MyMesh</ObjectFileName>
     </ClCompile>
     <ClCompile Include="MyController.cpp" />
     <ClCompile Include="MyView.cpp" />
+    <ClCompile Include="OpenGL.cpp" />
     <ClCompile Include="Vertex.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -137,9 +142,11 @@
     <ClInclude Include="..\external\include\SceneModel\SceneModel.hpp" />
     <ClInclude Include="..\external\include\SceneModel\SceneModel_fwd.hpp" />
     <ClInclude Include="..\external\src\SceneModel\FirstPersonMovement.hpp" />
+    <ClInclude Include="Material.hpp" />
     <ClInclude Include="Mesh.hpp" />
     <ClInclude Include="MyController.hpp" />
     <ClInclude Include="MyView.hpp" />
+    <ClInclude Include="OpenGL.hpp" />
     <ClInclude Include="Vertex.hpp" />
   </ItemGroup>
   <ItemGroup>

@@ -3,14 +3,16 @@
 
 #version 330
 
-uniform vec3        cameraPosition; //!< Contains the position of the camera in world space.
-uniform sampler2D   textureSampler; //!< The desired texture to apply to the particular pixel.
+        uniform samplerBuffer   materialTBO;    //!< A texture buffer filled with the required diffuse and specular properties for the material.
+        uniform sampler2D       textureSampler; //!< The desired texture to apply to the particular pixel.
+        uniform vec3            cameraPosition; //!< Contains the position of the camera in world space.
 
-in      vec3        worldPosition;  //!< The fragments position vector in world space.
-in      vec3        worldNormal;    //!< The fragments normal vector in world space.
-in      vec2        texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.    
+        in      vec3            worldPosition;  //!< The fragments position vector in world space.
+        in      vec3            worldNormal;    //!< The fragments normal vector in world space.
+        in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
+flat    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
 
-out     vec4        fragmentColour; //!< The computed output colour of this particular pixel;
+        out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
 
 
 /// <summary> Can be used to colour the scene using red, green or and blue triangles. </summary>
@@ -22,18 +24,82 @@ vec3 primitiveColour();
 /// <param name="range"> The range of the point light. Light shall not extend beyond this value. </param>
 float pointLightAttenuation (const float distance, const float range, bool useSmoothstep);
 
+vec3 cameraPointLight();
+
 
 //float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
 
+const float ka          = 0.0;
+const float kd          = 1.0;
+const float ks          = 0.4;
+const float shininess   = 16.0;
+
+vec3 ambient    = vec3 (1.0, 1.0, 1.0) * ka;
+vec3 diffuse    = vec3 (1.0, 1.0, 1.0) * kd;
+vec3 specular   = vec3 (1.0, 1.0, 1.0) * ks;
 
 
 void main()
 {
-    vec3 textureColour = texture (textureSampler, texturePoint).rgb;
-    fragmentColour = vec4 (textureColour *  (0.5 + 0.5 * normalize (worldNormal)), 1.0);
+    // Parameters.
+    vec3 Q = worldPosition;
+    vec3 N = normalize (worldNormal);
+    vec3 V = normalize (cameraPosition - Q);
+
+    // Shade each light.
+    vec3 lighting = cameraPointLight();
+    
+
+    /*// Perform point light calculations for the ten small lights and point light calculations for the first.
+    for (int i = 0; i < lights.length(); ++i)
+    {
+        float distance = length (lights[i].position - Q);
+        vec3 L = (lights[i].position - Q) / distance;
+        vec3 R = reflect (L, N);
+        
+        float lambertian = max (dot (L, N), 0);
+        
+        //if (lambertian > 0)
+        {
+            vec3 attenuatedColour = vec3 (0, 0, 0);
+
+            // The first light should be a point light, the rest are spot lights.
+            if (i == 0)
+            {
+                attenuatedColour = colours[i] * spotLightAttenuation (lights[i], L, distance, 10);
+            }
+            
+            else
+            {
+                attenuatedColour = colours[i] * pointLightAttenuation (distance, lights[i].range);
+            }
+            
+            // Calculate the lighting to add.
+            vec3 diffuseLighting = kd * lambertian;
+            vec3 specularLighting = ks * pow (max (dot (V, R), 0), shininess);
+            
+            lighting += attenuatedColour * (diffuseLighting + specularLighting);
+        }
+    }*/
+    
+    // Outcome.
+    fragmentColour = vec4 (ka + lighting, 1.0);
 }
 
+vec3 cameraPointLight()
+{
+    vec3 Q = worldPosition;
+    vec3 N = normalize (worldNormal);
+    
+    float distance = length (cameraPosition - Q);
+    vec3 L = (cameraPosition - Q) / distance;
 
+    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 250.0, false);
+    
+    float lambertian = max (dot (L, N), 0);
+
+    return light * (diffuse * lambertian);
+}
 
 vec3 primitiveColour()
 {

@@ -9,13 +9,13 @@
 
 #pragma region Constructors
 
-Mesh::Mesh (Mesh&& move)
+MyView::Mesh::Mesh (Mesh&& move)
 {
     *this = std::move (move);
 }
 
 
-Mesh& Mesh::operator= (Mesh&& move)
+MyView::Mesh& MyView::Mesh::operator= (Mesh&& move)
 {
     // Avoid moving self to self.
     if (this != &move)

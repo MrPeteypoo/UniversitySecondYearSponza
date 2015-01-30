@@ -12,16 +12,25 @@
 // Engine headers.
 #include <glm/gtc/matrix_transform.hpp>
 #include <SceneModel/SceneModel.hpp>
-#include <tygra/FileHelper.hpp>
+#include <tgl/tgl.h>
+#include <Material.hpp>
+#include <Mesh.hpp>
+#include <OpenGL.hpp>
 #include <Vertex.hpp>
 
 
 
-#pragma region Constructors
+#pragma region Constructors and destructor
 
 MyView::MyView (MyView&& move)
 {
     *this = std::move (move);
+}
+
+
+MyView::~MyView()
+{
+    cleanMeshMaterials();
 }
 
 
@@ -32,17 +41,20 @@ MyView& MyView::operator= (MyView&& move)
         m_program       = std::move (move.m_program);
         m_aspectRatio   = std::move (move.m_aspectRatio);
 
-        m_scene         = std::move (move.m_scene);
-        m_meshes        = std::move (move.m_meshes);
-
         m_sceneVAO      = std::move (move.m_sceneVAO);
         m_vertexVBO     = std::move (move.m_vertexVBO);
         m_elementVBO    = std::move (move.m_elementVBO);
 
-        m_instancePool  = std::move (move.m_instancePool);
+        m_matricesPool  = std::move (move.m_matricesPool);
+        m_materialPool  = std::move (move.m_materialPool);
         m_poolSize      = std::move (move.m_poolSize);
 
+        m_materialTBO   = std::move (move.m_materialTBO);
         m_hexTexture    = std::move (move.m_hexTexture);
+
+        m_scene         = std::move (move.m_scene);
+        m_meshes        = std::move (move.m_meshes);
+        m_materials     = std::move (move.m_materials);
     }
 
     return *this;
@@ -53,7 +65,7 @@ MyView& MyView::operator= (MyView&& move)
 
 #pragma region Getters and setters
 
-void MyView::setScene(std::shared_ptr<const SceneModel::Context> scene)
+void MyView::setScene (std::shared_ptr<const SceneModel::Context> scene)
 {
     m_scene = scene;
 }
@@ -63,7 +75,7 @@ void MyView::setScene(std::shared_ptr<const SceneModel::Context> scene)
 
 #pragma region Window functions
 
-void MyView::windowViewWillStart(std::shared_ptr<tygra::Window> window)
+void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
 {
     assert (m_scene != nullptr);
     
@@ -72,13 +84,19 @@ void MyView::windowViewWillStart(std::shared_ptr<tygra::Window> window)
 
     // Retrieve the Sponza data ready for rendering.
     buildMeshData();
+
+    // Ensure we have the required materials.
+    buildMaterialData();
     
-    // Finally load the hex texture.
-    generateTexture2D (m_hexTexture, "hex.png");    
+    // Finally load the textures.
+    util::generateTexture2D (m_hexTexture, "hex.png");
+    glActiveTexture (GL_TEXTURE0);
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+    glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
 }
 
 
-void MyView::windowViewDidReset(std::shared_ptr<tygra::Window> window, int width, int height)
+void MyView::windowViewDidReset (std::shared_ptr<tygra::Window> window, int width, int height)
 {
     // Reset the viewport and calculate the aspect ratio.
     glViewport (0, 0, width, height);
@@ -86,23 +104,25 @@ void MyView::windowViewDidReset(std::shared_ptr<tygra::Window> window, int width
 }
 
 
-void MyView::windowViewDidStop(std::shared_ptr<tygra::Window> window)
+void MyView::windowViewDidStop (std::shared_ptr<tygra::Window> window)
 {
     // Delete the program.
     glDeleteProgram (m_program);
+    cleanMeshMaterials();
     
     // Delete all VAOs and VBOs.
     glDeleteVertexArrays (1, &m_sceneVAO);
     glDeleteBuffers (1, &m_vertexVBO);
     glDeleteBuffers (1, &m_elementVBO);
-    glDeleteBuffers (1, &m_instancePool);
+    glDeleteBuffers (1, &m_matricesPool);
 
     // Delete all textures.
+    glDeleteTextures (1, &m_materialTBO);
     glDeleteTextures (1, &m_hexTexture);
 }
 
 
-void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
+void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 {
     assert (m_scene != nullptr);
 
@@ -124,29 +144,37 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
     // Get uniform locations.
     const auto  projectionID    = glGetUniformLocation (m_program, "projection"),
                 viewID          = glGetUniformLocation (m_program, "view"),
-                textureID       = glGetUniformLocation (m_program, "textureSampler");
+
+                textureID       = glGetUniformLocation (m_program, "textureSampler"),
+                cameraPosID     = glGetUniformLocation (m_program, "cameraPosition");
 
     // Set uniform variables.
     glUniformMatrix4fv (projectionID, 1, GL_FALSE, glm::value_ptr (projection));
     glUniformMatrix4fv (viewID, 1, GL_FALSE, glm::value_ptr (view));
+    glUniform3fv (cameraPosID, 1, glm::value_ptr (camera.getPosition()));
     glUniform1i (textureID, 0);
-
-    // Specify the texture to use.
-    glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_2D, m_hexTexture);
 
     // Specify the VAO to use.
     glBindVertexArray (m_sceneVAO);
 
-    // Bind the instance pool as the active buffer.
-    glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
+    // Specify the textures to use.
+    glActiveTexture (GL_TEXTURE0);
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+
+    glActiveTexture (GL_TEXTURE1);
+    glBindTexture (GL_TEXTURE_2D, m_hexTexture);
+
+    // Bind the instance pools as the active buffer.
+    glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
+    glBindBuffer (GL_TEXTURE_BUFFER, m_materialPool);
     
     // Cache a vector full of model and PVM matrices for the rendering.
     std::vector<glm::mat4> matrices { };
-    matrices.resize (m_poolSize);
+    matrices.resize (m_poolSize * 2);
 
-    // Cache the instance size calculation.
-    const auto instanceSize = sizeof (glm::mat4) * 2;
+    // Cache a vector full of material colouring data for the rendering.
+    std::vector<Material> materials { };
+    materials.resize (m_poolSize);
 
     // Iterate through each mesh using instance rendering to reduce GL calls.
     for (const auto& pair : m_meshes)
@@ -158,31 +186,50 @@ void MyView::windowViewRender(std::shared_ptr<tygra::Window> window)
         // Check if we need to do any rendering at all.
         if (size != 0)
         {
-            // Cache access to the current mesh.
-            const auto& mesh    = pair.second;
-
-            // Update the instance specific matrices.
+            // Update the instance-specific information.
             for (unsigned int i = 0; i < size; ++i)
             {
+                // Cache the current instance.
+                const auto& instance    = m_scene->getInstanceById (instances[i]);
+
                 // Obtain the current instances model transformation.
-                const auto& model       = static_cast<glm::mat4> (m_scene->getInstanceById (instances[i]).getTransformationMatrix());
-             
+                const auto model        = static_cast<glm::mat4> (instance.getTransformationMatrix());
+
                 // We have both the model and pvm matrices in the buffer so we need an offset.
                 const auto offset       = i * 2;
-
                 matrices[offset]        = model;
                 matrices[offset + 1]    = projection * view * model;
+
+                // Now deal with the materials. Assuming no errors occur a try-catch block should have almost no overhead.
+                const auto materialID   = instance.getMaterialId();
+                try
+                {
+                    // Use .at() to throw an exception instead of creating an access violation error.
+                    materials[i] = *m_materials.at (materialID);
+                }
+
+                catch (...)
+                {
+                    // Create a blank material and use that.
+                    m_materials[materialID] = new Material();
+                    materials[i]            = *m_materials.at (materialID);
+                }
             }
 
-            // Only buffer the required data to save time.
-            glBufferSubData (GL_ARRAY_BUFFER, 0, instanceSize * size, matrices.data());
+            // Only overwrite the required data to speed up the buffering process.
+            glBufferSubData (GL_ARRAY_BUFFER, 0, sizeof (glm::mat4) * 2 * size, matrices.data());
+            glBufferSubData (GL_TEXTURE_BUFFER, 0, sizeof (Material) * size, materials.data());
+            
+            // Cache access to the current mesh.
+            const auto& mesh = pair.second;
 
             // Finally draw all instances at the same time.
-            glDrawElementsInstancedBaseVertex (GL_TRIANGLES, mesh.elementCount, GL_UNSIGNED_INT, (GLvoid*) mesh.elementsOffset, size, mesh.verticesIndex);
+            glDrawElementsInstancedBaseVertex (GL_TRIANGLES, mesh->elementCount, GL_UNSIGNED_INT, (GLuint*) mesh->elementsOffset, size, mesh->verticesIndex);
         }
     }
 
     // Unbind all buffers.
+    glBindBuffer (GL_TEXTURE_BUFFER, 0);
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);
 }
@@ -201,18 +248,18 @@ void MyView::buildProgram()
     const auto vertexShaderLocation                 = "sponza_vs.glsl";
     const auto fragmentShaderLocation               = "sponza_fs.glsl";
     
-    const auto vertexShader                         = compileShaderFromFile (vertexShaderLocation, ShaderType::Vertex);
-    const auto fragmentShader                       = compileShaderFromFile (fragmentShaderLocation, ShaderType::Fragment);
+    const auto vertexShader                         = util::compileShaderFromFile (vertexShaderLocation, util::ShaderType::Vertex);
+    const auto fragmentShader                       = util::compileShaderFromFile (fragmentShaderLocation, util::ShaderType::Fragment);
     
     // Attach the shaders to the program we created.
     const std::vector<GLchar*> vertexAttributes     = { "position", "normal", "textureCoord", "model", "pvm" };
     const std::vector<GLchar*> fragmentAttributes   = {  };
 
-    attachShader (m_program, vertexShader, vertexAttributes);
-    attachShader (m_program, fragmentShader, fragmentAttributes);
+    util::attachShader (m_program, vertexShader, vertexAttributes);
+    util::attachShader (m_program, fragmentShader, fragmentAttributes);
 
     // Link the program
-    linkProgram (m_program);
+    util::linkProgram (m_program);
 }
 
 
@@ -227,10 +274,10 @@ void MyView::buildMeshData()
 
     // Start by allocating enough memory in the VBOs to contain the scene.
     size_t vertexSize { 0 }, elementSize { 0 };
-    calculateVBOSize (meshes, vertexSize, elementSize);
+    util::calculateVBOSize (meshes, vertexSize, elementSize);
     
-    allocateVBO (m_vertexVBO, vertexSize, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-    allocateVBO (m_elementVBO, elementSize, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+    util::allocateVBO (m_vertexVBO, vertexSize, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+    util::allocateVBO (m_elementVBO, elementSize, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
     
     // Bind our VBOs.
     glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
@@ -247,10 +294,10 @@ void MyView::buildMeshData()
         const auto& elements    = mesh.getElementArray();
         
         // Initialise a new mesh.
-        Mesh newMesh { };
-        newMesh.verticesIndex   = vertexIndex;
-        newMesh.elementsOffset  = elementOffset;
-        newMesh.elementCount    = elements.size();
+        Mesh* newMesh { new Mesh() };
+        newMesh->verticesIndex   = vertexIndex;
+        newMesh->elementsOffset  = elementOffset;
+        newMesh->elementCount    = elements.size();
         
         // Obtain the required vertex information.
         std::vector<Vertex> vertices { };
@@ -269,11 +316,31 @@ void MyView::buildMeshData()
     }    
 
     // Generate the instance pool buffer for the VAO.
-    glGenBuffers (1, &m_instancePool);
+    glGenBuffers (1, &m_matricesPool);
+    glGenBuffers (1, &m_materialPool);
     allocateInstancePool();
 
     // Now we can construct the VAO and begin rendering!
     constructVAO();
+}
+
+
+void MyView::buildMaterialData()
+{
+    // Obtain every material in the scene.
+    const auto& materials = m_scene->getAllMaterials();
+
+    // Iterate through them creating a buffer-ready material for each ID.
+    for (const auto& material : materials)
+    {
+        Material* bufferMaterial        = new Material();
+        bufferMaterial->diffuseColour   = material.getDiffuseColour();
+        bufferMaterial->specularColour  = material.getSpecularColour();
+        bufferMaterial->shininess       = material.getShininess();
+
+        // Add it to the map.
+        m_materials.emplace (material.getId(), bufferMaterial);
+    }
 }
 
 
@@ -316,13 +383,19 @@ void MyView::allocateInstancePool()
             }
         }
 
-        // We store two matrices per instance.
-        m_poolSize = highest * 2;
+        // Update the pool size.
+        m_poolSize = highest;
 
-        // Finally resize the buffer to the correct size.
-        glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
-        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
+        // Finally resize the buffers to the correct size. Remember we need two matrices.
+        glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
+        glBindBuffer (GL_TEXTURE_BUFFER, m_materialPool);
+
+        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * 2 * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
+        glBufferData (GL_TEXTURE_BUFFER, sizeof (Material) * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
+        
+        // Unbind the buffers.
         glBindBuffer (GL_ARRAY_BUFFER, 0);
+        glBindBuffer (GL_TEXTURE_BUFFER, 0);
     }
 }
 
@@ -358,199 +431,42 @@ void MyView::constructVAO()
     glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
 
     // Now we need to create the instanced matrix attribute pointers.
-    glBindBuffer (GL_ARRAY_BUFFER, m_instancePool);
+    glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
 
     // We'll combine our matrices into a single VBO so we need the stride to be double.
-    createInstancedMatrix4 (modelTransform, sizeof (glm::mat4) * 2);
-    createInstancedMatrix4 (pvmTransform,   sizeof (glm::mat4) * 2, sizeof (glm::mat4));
+    util::createInstancedMatrix4 (modelTransform, sizeof (glm::mat4) * 2);
+    util::createInstancedMatrix4 (pvmTransform,   sizeof (glm::mat4) * 2, sizeof (glm::mat4));
 
     // Unbind all buffers.
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);
 }
 
-#pragma endregion
 
-
-#pragma region OpenGL creation
-
-GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType shader)
+void MyView::cleanMeshMaterials()
 {
-    // Read in the shader into a const char*.
-    const auto  shaderString = tygra::stringFromFile (fileLocation);
-    auto        shaderCode = shaderString.c_str();
-    
-    // Attempt to compile the shader.
-    GLuint shaderID { };
-
-    switch (shader)
+    // Clean the mesh vector.
+    for (auto& pair : m_meshes)
     {
-        case ShaderType::Vertex:
-            shaderID = glCreateShader (GL_VERTEX_SHADER);
-            break;
-
-        case ShaderType::Fragment:
-            shaderID = glCreateShader (GL_FRAGMENT_SHADER);
-            break;
-    }
-
-    glShaderSource (shaderID, 1, static_cast<const GLchar**> (&shaderCode), NULL);
-    glCompileShader (shaderID);
-
-    // Check whether compilation was successful.
-    GLint compileStatus { 0 };
-
-    glGetShaderiv (shaderID, GL_COMPILE_STATUS, &compileStatus);
-    
-    if (compileStatus != GL_TRUE)
-    {
-        // Output error information.
-        const unsigned int stringLength = 1024;
-        GLchar log[stringLength] = "";
-
-        glGetShaderInfoLog (shaderID, stringLength, NULL, log);
-        std::cerr << log << std::endl;
-    }
-
-    return shaderID;
-}
-
-
-void attachShader (const GLuint program, const GLuint shader, const std::vector<GLchar*>& attributes)
-{
-    // Check whether we have a valid shader ID before continuing.
-    if (shader != 0)
-    {
-        glAttachShader (program, shader);
-
-        // Add the given attributes to the shader.
-        for (unsigned int i = 0; i < attributes.size(); ++i)
+        if (pair.second)
         {
-            if (attributes[i] != nullptr)
-            {
-                glBindAttribLocation (program, i, attributes[i]);
-            }
-        }
-
-        // Flag the shader for deletion.
-        glDeleteShader (shader);
-    }    
-}
-
-
-bool linkProgram (const GLuint program)
-{
-    // Attempt to link the program.
-    glLinkProgram (program);
-
-    // Test the status for any errors.
-    GLint linkStatus  { 0 };
-    glGetProgramiv (program, GL_LINK_STATUS, &linkStatus);
-
-    if (linkStatus != GL_TRUE) 
-    {
-        // Output error information.
-        const unsigned int stringLength = 1024;
-        GLchar log[stringLength] = "";
-
-        glGetProgramInfoLog (program, stringLength, NULL, log);
-        std::cerr << log << std::endl;
-
-        return false;
-    }
-
-    return true;
-}
-
-
-void allocateVBO (GLuint& vbo, const size_t size, const GLenum target, const GLenum usage)
-{
-    glGenBuffers (1, &vbo);
-    glBindBuffer (target, vbo);
-    glBufferData (target, size, nullptr, usage);
-    glBindBuffer (target, 0);
-}
-
-
-void createInstancedMatrix4 (const int attribLocation, const GLsizei stride, const int extraOffset, const int divisor)
-{
-    // Pre-condition: A valid attribute location has been given.
-    if (attribLocation >= 0)
-    {
-        // We need to go through each column of the matrices creating attribute pointers.
-        const int matrixColumns { 4 };
-        for (int i = 0; i < matrixColumns; ++i)
-        {
-            const int current   { attribLocation + i };
-
-            // Enable each column and set the divisor.
-            glEnableVertexAttribArray (current);
-            glVertexAttribDivisor (current, divisor);
-
-            // Calculate the offsets for each column.
-            const auto offset = TGL_BUFFER_OFFSET (sizeof (glm::vec4) * i + extraOffset);
-
-            // Create the columns attribute pointer.
-            glVertexAttribPointer (current,  4, GL_FLOAT, GL_FALSE, stride, offset);
+            delete pair.second;
+            pair.second = nullptr;
         }
     }
-}
 
-
-void generateTexture2D (GLuint& textureBuffer, const std::string& fileLocation)
-{
-    // Attempt to load the image.
-    tygra::Image image = tygra::imageFromPNG (fileLocation);
-
-    if (image.containsData()) 
+    // Clean the materials map.
+    for (auto& pair : m_materials)
     {
-        // Start by preparing the texture buffer.
-        glGenTextures (1, &textureBuffer);
-        glBindTexture (GL_TEXTURE_2D, textureBuffer);
-
-        // Enable standard filters.
-        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER,  GL_LINEAR);
-        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,  GL_LINEAR_MIPMAP_LINEAR);
-        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_S,      GL_REPEAT);
-        glTexParameteri (GL_TEXTURE_2D, GL_TEXTURE_WRAP_T,      GL_REPEAT);
-
-        // Enable each different pixel format.
-        GLenum pixel_formats[] = { 0, GL_RED, GL_RG, GL_RGB, GL_RGBA };
-
-        // Load the texture into OpenGL.
-        glTexImage2D (  GL_TEXTURE_2D, 0, GL_RGBA,          
-                      
-                        // Dimensions and border.
-                        image.width(), image.height(), 0,   
-                      
-                        // Format and type.
-                        pixel_formats[image.componentsPerPixel()], image.bytesPerComponent() == 1 ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT,
-                      
-                        // Data.
-                        image.pixels());
-
-        // Generate the mipmaps from the loaded texture and finish.
-        glGenerateMipmap (GL_TEXTURE_2D);
-        glBindTexture (GL_TEXTURE_2D, 0);
-    }
-}
-
-
-void calculateVBOSize (const std::vector<SceneModel::Mesh>& meshes, size_t& vertexSize, size_t& elementSize)
-{
-    // Create temporary accumlators.
-    size_t vertices { 0 }, elements { 0 };  
-
-    // We need to loop through each mesh adding up as we go along.
-    for (const auto& mesh : meshes)
-    {
-        vertices += mesh.getPositionArray().size();
-        elements += mesh.getElementArray().size();
+        if (pair.second)
+        {
+            delete pair.second;
+            pair.second = nullptr;
+        }
     }
 
-    // Calculate the final values.
-    vertexSize = vertices * sizeof (Vertex);
-    elementSize = elements * sizeof (unsigned int);
+    m_meshes.clear();
+    m_materials.clear();
 }
 
 #pragma endregion
