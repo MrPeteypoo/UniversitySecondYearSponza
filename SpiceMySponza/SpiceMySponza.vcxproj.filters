@@ -79,6 +79,9 @@
       <Filter>MyView</Filter>
     </ClCompile>
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="Utility\SceneModel.cpp">
+      <Filter>Utility</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\include\SceneModel\GeometryBuilder.hpp">
@@ -133,6 +136,9 @@
       <Filter>Misc</Filter>
     </ClInclude>
     <ClInclude Include="Utility\Maths.h">
+      <Filter>Utility</Filter>
+    </ClInclude>
+    <ClInclude Include="Utility\SceneModel.h">
       <Filter>Utility</Filter>
     </ClInclude>
   </ItemGroup>

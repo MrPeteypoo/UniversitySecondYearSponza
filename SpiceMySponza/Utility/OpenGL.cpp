@@ -8,7 +8,6 @@
 
 
 // Engine headers.
-#include <SceneModel/Mesh.hpp>
 #include <tgl/tgl.h>
 #include <tygra/FileHelper.hpp>
 
@@ -23,42 +22,23 @@ namespace util
 {
     #pragma region Template instantiations
 
-    template void fillVBO (GLuint& vbo, const std::vector<unsigned int>& data, const GLenum target, const GLenum usage);
-    template void fillVBO (GLuint& vbo, const std::vector<Vertex>& data, const GLenum target, const GLenum usage);
+    template void fillBuffer (GLuint& vbo, const std::vector<unsigned int>& data, const GLenum target, const GLenum usage);
+    template void fillBuffer (GLuint& vbo, const std::vector<Vertex>& data, const GLenum target, const GLenum usage);
 
     #pragma endregion
 
 
-    #pragma region Implementations
+    #pragma region Compilation
     
-    template <typename T> void fillVBO (GLuint& vbo, const std::vector<T>& data, const GLenum target, const GLenum usage)
-    {
-        glGenBuffers (1, &vbo);
-        glBindBuffer (target, vbo);
-        glBufferData (target, data.size() * sizeof (T), data.data(), usage);
-        glBindBuffer (target, 0);
-    }
-
-
-    GLuint compileShaderFromFile (const std::string& fileLocation, const ShaderType shader)
+    GLuint compileShaderFromFile (const std::string& fileLocation, const GLenum shader)
     {
         // Read in the shader into a const char*.
-        const auto  shaderString = tygra::stringFromFile (fileLocation);
-        auto        shaderCode = shaderString.c_str();
+        const auto shaderString = tygra::stringFromFile (fileLocation);
+        auto       shaderCode   = shaderString.c_str();
     
         // Attempt to compile the shader.
         GLuint shaderID { };
-
-        switch (shader)
-        {
-            case ShaderType::Vertex:
-                shaderID = glCreateShader (GL_VERTEX_SHADER);
-                break;
-
-            case ShaderType::Fragment:
-                shaderID = glCreateShader (GL_FRAGMENT_SHADER);
-                break;
-        }
+        shaderID = glCreateShader (shader);
 
         glShaderSource (shaderID, 1, static_cast<const GLchar**> (&shaderCode), NULL);
         glCompileShader (shaderID);
@@ -128,15 +108,40 @@ namespace util
         return true;
     }
 
+    #pragma endregion
 
-    void allocateVBO (GLuint& vbo, const size_t size, const GLenum target, const GLenum usage)
+
+    #pragma region Allocation
+
+    void allocateBuffer (GLuint& buffer, const size_t size, const GLenum target, const GLenum usage)
     {
-        glGenBuffers (1, &vbo);
-        glBindBuffer (target, vbo);
+        if (buffer == 0)
+        {
+            glGenBuffers (1, &buffer);
+        }
+        
+        glBindBuffer (target, buffer);
         glBufferData (target, size, nullptr, usage);
         glBindBuffer (target, 0);
     }
 
+
+    template <typename T> void fillBuffer (GLuint& buffer, const std::vector<T>& data, const GLenum target, const GLenum usage)
+    {
+        if (buffer == 0)
+        {
+            glGenBuffers (1, &buffer);
+        }
+
+        glBindBuffer (target, buffer);
+        glBufferData (target, data.size() * sizeof (T), data.data(), usage);
+        glBindBuffer (target, 0);
+    }
+
+    #pragma endregion
+
+
+    #pragma region Miscellaneous
 
     void createInstancedMatrix4 (const int attribLocation, const GLsizei stride, const int extraOffset, const int divisor)
     {
@@ -171,7 +176,11 @@ namespace util
         if (image.containsData()) 
         {
             // Start by preparing the texture buffer.
-            glGenTextures (1, &textureBuffer);
+            if (textureBuffer == 0)
+            {
+                glGenTextures (1, &textureBuffer);
+            }
+
             glBindTexture (GL_TEXTURE_2D, textureBuffer);
 
             // Enable standard filters.
@@ -200,24 +209,6 @@ namespace util
             glBindTexture (GL_TEXTURE_2D, 0);
         }
     }
-
-
-    void calculateVBOSize (const std::vector<SceneModel::Mesh>& meshes, size_t& vertexSize, size_t& elementSize)
-    {
-        // Create temporary accumlators.
-        size_t vertices { 0 }, elements { 0 };  
-
-        // We need to loop through each mesh adding up as we go along.
-        for (const auto& mesh : meshes)
-        {
-            vertices += mesh.getPositionArray().size();
-            elements += mesh.getElementArray().size();
-        }
-
-        // Calculate the final values.
-        vertexSize = vertices * sizeof (Vertex);
-        elementSize = elements * sizeof (unsigned int);
-    }
-
+    
     #pragma endregion
 }

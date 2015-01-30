@@ -2,7 +2,7 @@
 
 #if !defined    MY_VIEW_UNIFORM_DATA_
 #define         MY_VIEW_UNIFORM_DATA_
-#define         MAX_LIGHTS  20
+#define         MAX_LIGHTS  (unsigned int) 20
 
 
 // Engine headers.
@@ -60,10 +60,10 @@ class MyView::UniformData final
         
         /// <summary> Sets the number of lights to render. </summary>
         /// <param name="count"> Lights 0 to (count - 1) will be rendered. </param>
-        void setLightCount (const int count);
+        void setLightCount (const unsigned int count);
         
         /// <summary> Converts the desired light into shader-ready format. </summary>
-        void setLight (const int index, const SceneModel::Light& sceneLight);
+        void setLight (const unsigned int index, const SceneModel::Light& sceneLight);
 
         #pragma endregion
 
@@ -71,7 +71,9 @@ class MyView::UniformData final
 
         #pragma region Light structure
 
-        /// <summary> A basic light structure as expected by shaders. </summary>
+        /// <summary> 
+        /// A basic light structure as expected by shaders.
+        /// </summary>
         struct Light final
         {
             glm::vec3   position    { 0, 0, 0 };    //!< The world position of the light in the scene.
@@ -95,14 +97,14 @@ class MyView::UniformData final
     
         #pragma region Implementation data
 
-        glm::mat4   m_projection            { 1 };          //!< The project matrix used during the rendering of the current frame.
-        glm::mat4   m_view                  { 1 };          //!< The view matrix from the current cameras position and direction.
+        glm::mat4       m_projection            { 1 };          //!< The project matrix used during the rendering of the current frame.
+        glm::mat4       m_view                  { 1 };          //!< The view matrix from the current cameras position and direction.
 
-        glm::vec3   m_cameraPosition        { 0, 0, 0 };    //!< The world-space position of the camera.
-        glm::vec3   m_ambience              { 1, 1, 1 };    //!< The ambient colour of the scene.
+        glm::vec3       m_cameraPosition        { 0, 0, 0 };    //!< The world-space position of the camera.
+        glm::vec3       m_ambience              { 1, 1, 1 };    //!< The ambient colour of the scene.
 
-        int         m_numLights             { 0 };          //!< The number of lights currently in the scene.
-        Light       m_lights[MAX_LIGHTS]    { };            //!< Data for each light in the scene.
+        unsigned int    m_numLights             { 0 };          //!< The number of lights currently in the scene.
+        Light           m_lights[MAX_LIGHTS]    { };            //!< Data for each light in the scene.
 
         #pragma endregion
 };

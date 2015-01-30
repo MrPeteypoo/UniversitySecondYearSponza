@@ -2,9 +2,7 @@
 /// <namespace> GLSL::FRAGMENT </namespace>
 
 #version 330
-
-
-#define MAX_LIGHTS 25
+#define MAX_LIGHTS 20
 
 
 /// <summary>
@@ -22,7 +20,7 @@ struct Light
 
 
 /// <summary> The uniform buffer for each shader. </summary>
-layout (packed, std140) uniform ubo
+layout (std140) uniform ubo
 {
     mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
     mat4    view;               //!< The view transform representing where the camera is looking.
@@ -30,7 +28,7 @@ layout (packed, std140) uniform ubo
     vec3    cameraPosition;     //!< Contains the position of the camera in world space.
     vec3    ambience;           //!< The ambient lighting in the scene.
     
-    int     numLights;          //!< The number of lights in use.
+    uint    numLights;          //!< The number of lights in use.
     Light   lights[MAX_LIGHTS]; //!< The lighting data of each light in the scene.
 };
 
@@ -66,8 +64,8 @@ vec3 cameraPointLight();
 //float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
 
 const float ka  = 0.2;
-const float kd  = 0.8;
-const float ks  = 0.0;
+const float kd  = 0.5;
+const float ks  = 0.5;
 
 vec3 ambient    = ambience * ka;
 vec3 diffuse    = vec3 (1.0, 1.0, 1.0) * kd;
@@ -150,7 +148,7 @@ vec3 cameraPointLight()
     float distance = length (cameraPosition - Q);
     vec3 L = (cameraPosition - Q) / distance;
 
-    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 50.0, false);
+    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 500.0, false);
     
     float lambertian = max (dot (L, N), 0);
 

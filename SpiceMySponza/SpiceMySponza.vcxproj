@@ -131,6 +131,7 @@
     <ClCompile Include="MyView\MyView.cpp" />
     <ClCompile Include="MyView\UniformData.cpp" />
     <ClCompile Include="Utility\OpenGL.cpp" />
+    <ClCompile Include="Utility\SceneModel.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\external\include\SceneModel\Camera.hpp" />
@@ -151,6 +152,7 @@
     <ClInclude Include="MyView\UniformData.h" />
     <ClInclude Include="Utility\Maths.h" />
     <ClInclude Include="Utility\OpenGL.h" />
+    <ClInclude Include="Utility\SceneModel.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\demo\sponza_fs.glsl" />

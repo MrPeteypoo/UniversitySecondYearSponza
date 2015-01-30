@@ -33,7 +33,7 @@ MyView::UniformData& MyView::UniformData::operator= (UniformData&& move)
 
         m_numLights         = std::move (move.m_numLights);
         
-        for (int i = 0; i < MAX_LIGHTS; ++i)
+        for (unsigned int i = 0; i < MAX_LIGHTS; ++i)
         {
             m_lights[i] = std::move (move.m_lights[i]);
         }
@@ -47,16 +47,16 @@ MyView::UniformData& MyView::UniformData::operator= (UniformData&& move)
 
 #pragma region Setters
 
-void MyView::UniformData::setLightCount (const int count)
+void MyView::UniformData::setLightCount (const unsigned int count)
 {
-    m_numLights = util::clamp (count, 0, MAX_LIGHTS);
+    m_numLights = util::min (count, MAX_LIGHTS);
 }
 
 
-void MyView::UniformData::setLight (const int index, const SceneModel::Light& light)
+void MyView::UniformData::setLight (const unsigned int index, const SceneModel::Light& light)
 {
     // Pre-condition: Index is valid.
-    if (index < MAX_LIGHTS && index >= 0)
+    if (index < MAX_LIGHTS)
     {
         // Cache the light to be modified.
         auto& shaderLight = m_lights[index];

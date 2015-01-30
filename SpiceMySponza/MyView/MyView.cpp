@@ -20,7 +20,9 @@
 #include <Misc/Vertex.h>
 #include <MyView/Material.h>
 #include <MyView/Mesh.h>
+#include <MyView/UniformData.h>
 #include <Utility/OpenGL.h>
+#include <Utility/SceneModel.h>
 
 
 
@@ -34,7 +36,8 @@ MyView::MyView (MyView&& move)
 
 MyView::~MyView()
 {
-    cleanMeshMaterials();
+    // Never leave a byte of data behind!
+    windowViewDidStop ({ nullptr });
 }
 
 
@@ -43,18 +46,20 @@ MyView& MyView::operator= (MyView&& move)
     if (this != &move)
     {
         m_program       = std::move (move.m_program);
-        m_aspectRatio   = std::move (move.m_aspectRatio);
 
         m_sceneVAO      = std::move (move.m_sceneVAO);
         m_vertexVBO     = std::move (move.m_vertexVBO);
         m_elementVBO    = std::move (move.m_elementVBO);
+        m_uniformUBO    = std::move (move.m_uniformUBO);
 
         m_matricesPool  = std::move (move.m_matricesPool);
         m_materialPool  = std::move (move.m_materialPool);
         m_poolSize      = std::move (move.m_poolSize);
 
-        m_materialBuffer   = std::move (move.m_materialBuffer);
-        m_hexTexture    = std::move (move.m_hexTexture);
+        m_materialTBO   = std::move (move.m_materialTBO);
+        m_hexTBO        = std::move (move.m_hexTBO);
+        
+        m_aspectRatio   = std::move (move.m_aspectRatio);
 
         m_scene         = std::move (move.m_scene);
         m_meshes        = std::move (move.m_meshes);
@@ -77,52 +82,313 @@ void MyView::setScene (std::shared_ptr<const SceneModel::Context> scene)
 #pragma endregion
 
 
-#pragma region Window functions
+#pragma region Scene construction
 
 void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
 {
     assert (m_scene != nullptr);
     
     // Ensure the program gets built.
-    buildProgram();
+    if (buildProgram())
+    {
+        // Generate the buffers.
+        generateOpenGLObjects();
 
-    // Retrieve the Sponza data ready for rendering.
-    buildMeshData();
+        // Retrieve the Sponza data ready for rendering.
+        buildMeshData();
 
-    // Ensure we have the required materials.
-    buildMaterialData();
+        // Ensure we have the required materials.
+        buildMaterialData();
+
+        // Now we can construct the VAO so we're reading for rendering.
+        constructVAO();
+
+        // Allocate the required run-time memory for instancing.
+        allocateExtraBuffers();
     
-    // Finally load the textures.
-    util::generateTexture2D (m_hexTexture, "hex.png");
-    glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_BUFFER, m_materialBuffer);
-    glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
+        // Finally load the textures.
+        buildTextureData();
+    }
 }
 
 
-void MyView::windowViewDidReset (std::shared_ptr<tygra::Window> window, int width, int height)
+bool MyView::buildProgram()
 {
-    // Reset the viewport and calculate the aspect ratio.
-    glViewport (0, 0, width, height);
-    m_aspectRatio = width / static_cast<float> (height);
+    // Create the program to attach shaders to.
+    m_program                                       = glCreateProgram();
+
+    // Attempt to compile the shaders.
+    const auto vertexShaderLocation                 = "sponza_vs.glsl";
+    const auto fragmentShaderLocation               = "sponza_fs.glsl";
+    
+    const auto vertexShader                         = util::compileShaderFromFile (vertexShaderLocation, GL_VERTEX_SHADER);
+    const auto fragmentShader                       = util::compileShaderFromFile (fragmentShaderLocation, GL_FRAGMENT_SHADER);
+    
+    // Attach the shaders to the program we created.
+    const std::vector<GLchar*> vertexAttributes     = { "position", "normal", "textureCoord", "model", "pvm" };
+    const std::vector<GLchar*> fragmentAttributes   = {  };
+
+    util::attachShader (m_program, vertexShader, vertexAttributes);
+    util::attachShader (m_program, fragmentShader, fragmentAttributes);
+
+    // Link the program
+    return util::linkProgram (m_program);
 }
 
+
+void MyView::generateOpenGLObjects()
+{
+    glGenVertexArrays (1, &m_sceneVAO);
+
+    glGenBuffers (1, &m_vertexVBO);
+    glGenBuffers (1, &m_elementVBO);
+    glGenBuffers (1, &m_uniformUBO);
+    glGenBuffers (1, &m_materialPool);
+    glGenBuffers (1, &m_matricesPool);
+
+    glGenTextures (1, &m_materialTBO);
+    glGenTextures (1, &m_hexTBO);
+}
+
+
+void MyView::buildMeshData()
+{
+    // Begin to construct sponza.
+    const auto& builder = SceneModel::GeometryBuilder();
+    const auto& meshes  = builder.getAllMeshes();
+
+    // Resize our vector to speed up the loading process.
+    m_meshes.resize (meshes.size());
+
+    // Start by allocating enough memory in the VBOs to contain the scene.
+    size_t vertexSize { 0 }, elementSize { 0 };
+    util::calculateVBOSize (meshes, vertexSize, elementSize);
+    
+    util::allocateBuffer (m_vertexVBO, vertexSize, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
+    util::allocateBuffer (m_elementVBO, elementSize, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
+    
+    // Bind our VBOs.
+    glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
+
+    // Iterate through each mesh adding them to the mesh container.
+    GLint  vertexIndex      { 0 }; 
+    GLuint elementOffset    { 0 };
+    
+    for (unsigned int i = 0; i < meshes.size(); ++i)
+    {
+        // Cache the current mesh.
+        const auto& mesh        = meshes[i];
+        const auto& elements    = mesh.getElementArray();
+        
+        // Initialise a new mesh.
+        Mesh* newMesh { new Mesh() };
+        newMesh->verticesIndex   = vertexIndex;
+        newMesh->elementsOffset  = elementOffset;
+        newMesh->elementCount    = elements.size();
+        
+        // Obtain the required vertex information.
+        std::vector<Vertex> vertices { };
+        util::assembleVertices (vertices, mesh);
+
+        // Fill the vertex buffer objects with data.
+        glBufferSubData (GL_ARRAY_BUFFER,           vertexIndex * sizeof (Vertex),  vertices.size() * sizeof (Vertex),                  vertices.data());
+        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (SceneModel::InstanceId),  elements.data());
+
+        // The vertexIndex needs an actual index value whereas elementOffset needs to be in bytes.
+        vertexIndex += vertices.size();
+        elementOffset += elements.size() * sizeof (SceneModel::InstanceId);
+
+        // Finally create the pair and add the mesh to the vector.
+        m_meshes[i] = { mesh.getId(), std::move (newMesh) };
+    }
+}
+
+
+void MyView::buildMaterialData()
+{
+    // Obtain every material in the scene.
+    const auto& materials = m_scene->getAllMaterials();
+
+    // Iterate through them creating a buffer-ready material for each ID.
+    for (const auto& material : materials)
+    {
+        Material* bufferMaterial        = new Material();
+        bufferMaterial->diffuseColour   = material.getDiffuseColour();
+        bufferMaterial->specularColour  = material.getSpecularColour();
+        bufferMaterial->shininess       = material.getShininess();
+
+        // Add it to the map.
+        m_materials.emplace (material.getId(), bufferMaterial);
+    }
+}
+
+
+void MyView::buildTextureData()
+{
+    // Active the material texture buffer and point it to the material pool VBO.
+    glActiveTexture (GL_TEXTURE0);
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+    glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
+
+    // Load in the hex texture.
+    util::generateTexture2D (m_hexTBO, "hex.png");
+}
+
+
+void MyView::constructVAO()
+{
+    // Obtain the attribute pointer locations we'll be using to construct the VAO.
+    int position        { glGetAttribLocation (m_program, "position") };
+    int normal          { glGetAttribLocation (m_program, "normal") };
+    int textureCoord    { glGetAttribLocation (m_program, "textureCoord") };
+
+    int modelTransform  { glGetAttribLocation (m_program, "model") };
+    int pvmTransform    { glGetAttribLocation (m_program, "pvm") };
+
+    // Initialise the VAO.
+    glBindVertexArray (m_sceneVAO);
+
+    // Bind the element buffer to the VAO.
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
+
+    // Enable each attribute pointer.
+    glEnableVertexAttribArray (position);
+    glEnableVertexAttribArray (normal);
+    glEnableVertexAttribArray (textureCoord);
+
+    // Begin creating the vertex attribute pointer from the interleaved buffer.
+    glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
+
+    // Set the properties of each attribute pointer.
+    glVertexAttribPointer (position,        3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
+    glVertexAttribPointer (normal,          3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
+    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
+
+    // Now we need to create the instanced matrices attribute pointers.
+    glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
+
+    // We'll combine our matrices into a single VBO so we need the stride to be double.
+    util::createInstancedMatrix4 (modelTransform, sizeof (glm::mat4) * 2);
+    util::createInstancedMatrix4 (pvmTransform,   sizeof (glm::mat4) * 2, sizeof (glm::mat4));
+
+    // Unbind all buffers.
+    glBindVertexArray (0);
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
+}
+
+
+void MyView::allocateExtraBuffers()
+{
+    // Pre-condition: We have a valid scene assigned.
+    if (m_scene)
+    {
+        // We'll need to keep track of the highest number of instances in the scene.
+        m_poolSize = highestInstanceCount();
+
+        // The UBO will contain every uniform variable apart from textures.
+        util::allocateBuffer (m_uniformUBO, sizeof (UniformData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
+        
+        // The material pool stores the diffuse and specular properties of each instance for the fragment shader.
+        util::allocateBuffer (m_materialPool, sizeof (Material) * m_poolSize, GL_TEXTURE_BUFFER, GL_DYNAMIC_DRAW);
+
+        // The matrices pool stores the model and PVM transformation matrices of each instance, therefore we need two.
+        util::allocateBuffer (m_matricesPool, sizeof (glm::mat4) * 2 * m_poolSize, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    }
+}
+
+
+size_t MyView::highestInstanceCount() const
+{
+    // We'll need a temporary variable to keep track.
+    size_t highest  { 0 };
+   
+    // Iterate through each mesh ID.
+    for (const auto& pair : m_meshes)
+    {
+        const auto current = m_scene->getInstancesByMeshId (pair.first).size();
+
+        if (current > highest)
+        {
+            highest = current;
+        }
+    }
+
+    // Return the calculated figure.
+    return highest;
+}
+
+#pragma endregion
+
+
+#pragma region Clean up
 
 void MyView::windowViewDidStop (std::shared_ptr<tygra::Window> window)
+{    
+    // Clean up after ourselves by getting rid of the stored meshes/materials.
+    cleanMeshMaterials();
+
+    // Clean up the OpenGL side of things.
+    deleteOpenGLObjects();
+}
+
+
+void MyView::cleanMeshMaterials()
+{
+    // Clean the mesh vector.
+    for (auto& pair : m_meshes)
+    {
+        if (pair.second)
+        {
+            delete pair.second;
+            pair.second = nullptr;
+        }
+    }
+
+    // Clean the materials map.
+    for (auto& pair : m_materials)
+    {
+        if (pair.second)
+        {
+            delete pair.second;
+            pair.second = nullptr;
+        }
+    }
+
+    m_meshes.clear();
+    m_materials.clear();
+}
+
+
+void MyView::deleteOpenGLObjects()
 {
     // Delete the program.
     glDeleteProgram (m_program);
-    cleanMeshMaterials();
     
     // Delete all VAOs and VBOs.
     glDeleteVertexArrays (1, &m_sceneVAO);
     glDeleteBuffers (1, &m_vertexVBO);
     glDeleteBuffers (1, &m_elementVBO);
+    glDeleteBuffers (1, &m_uniformUBO);
+    glDeleteBuffers (1, &m_materialPool);
     glDeleteBuffers (1, &m_matricesPool);
 
     // Delete all textures.
-    glDeleteTextures (1, &m_materialBuffer);
-    glDeleteTextures (1, &m_hexTexture);
+    glDeleteTextures (1, &m_materialTBO);
+    glDeleteTextures (1, &m_hexTBO);
+}
+
+#pragma endregion
+
+
+#pragma region Rendering
+
+void MyView::windowViewDidReset (std::shared_ptr<tygra::Window> window, int width, int height)
+{
+    // Reset the viewport and recalculate the aspect ratio.
+    glViewport (0, 0, width, height);
+    m_aspectRatio = width / static_cast<float> (height);
 }
 
 
@@ -136,44 +402,36 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor (0.f, 0.1f, 0.f, 0.f);
+
+    // Specify shader program to use.
+    glUseProgram (m_program);
+    
+    // Specify the VAO to use.
+    glBindVertexArray (m_sceneVAO);
+
+    // Specify the buffers to use.
+    glBindBuffer (GL_UNIFORM_BUFFER, m_uniformUBO);
+    glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
+    glBindBuffer (GL_TEXTURE_BUFFER, m_materialPool);
+
+    // Specify the textures to use.
+    glActiveTexture (GL_TEXTURE0);
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+
+    glActiveTexture (GL_TEXTURE1);
+    glBindTexture (GL_TEXTURE_2D, m_hexTBO);
     
     // Define matrices.
     const auto& camera          = m_scene->getCamera();
     const auto  projection      = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
                 view            = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
-
-    // Specify shader program to use.
-    glUseProgram (m_program);
-
-    // Get uniform locations.
-    const auto  projectionID    = glGetUniformLocation (m_program, "projection"),
-                viewID          = glGetUniformLocation (m_program, "view"),
-                
-                cameraPosID     = glGetUniformLocation (m_program, "cameraPosition"),
-                ambienceID      = glGetUniformLocation (m_program, "ambience");
-
-    // Set uniform variables.
-    glUniformMatrix4fv (projectionID, 1, GL_FALSE, glm::value_ptr (projection));
-    glUniformMatrix4fv (viewID, 1, GL_FALSE, glm::value_ptr (view));
-
-    glUniform3fv (cameraPosID, 1, glm::value_ptr (camera.getPosition()));
-    glUniform3fv (ambienceID, 1, glm::value_ptr (m_scene->getAmbientLightIntensity()));
-
-    const auto& light = m_scene->getAllLights()[0];
-
-    // Specify the VAO to use.
-    glBindVertexArray (m_sceneVAO);
-
-    // Specify the textures to use.
-    glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_BUFFER, m_materialBuffer);
-
-    glActiveTexture (GL_TEXTURE1);
-    glBindTexture (GL_TEXTURE_2D, m_hexTexture);
-
-    // Bind the instance pools as the active buffer.
-    glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
-    glBindBuffer (GL_TEXTURE_BUFFER, m_materialPool);
+    
+    // Set the uniform variables. I'd rather the function done everything but then I'd have to pass through glm::mat4 objects, they aren't easy
+    // to forward declare!
+    UniformData data { };
+    data.setProjectionMatrix (projection);
+    data.setViewMatrix (view);
+    setUniforms (data);
     
     // Cache a vector full of model and PVM matrices for the rendering.
     std::vector<glm::mat4> matrices { };
@@ -236,244 +494,41 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     }
 
     // Unbind all buffers.
+    glBindTexture (GL_TEXTURE_2D, 0);
+    glBindTexture (GL_TEXTURE_BUFFER, 0);
     glBindBuffer (GL_TEXTURE_BUFFER, 0);
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);
 }
 
-#pragma endregion
 
-
-#pragma region Scene construction
-
-void MyView::buildProgram()
+void MyView::setUniforms (UniformData& data)
 {
-    // Create the program to attach shaders to.
-    m_program                                       = glCreateProgram();
+    // Obtain the correct data for the uniforms.
+    data.setCameraPosition (m_scene->getCamera().getPosition());
+    data.setAmbientColour (m_scene->getAmbientLightIntensity());
 
-    // Attempt to compile the shaders.
-    const auto vertexShaderLocation                 = "sponza_vs.glsl";
-    const auto fragmentShaderLocation               = "sponza_fs.glsl";
-    
-    const auto vertexShader                         = util::compileShaderFromFile (vertexShaderLocation, util::ShaderType::Vertex);
-    const auto fragmentShader                       = util::compileShaderFromFile (fragmentShaderLocation, util::ShaderType::Fragment);
-    
-    // Attach the shaders to the program we created.
-    const std::vector<GLchar*> vertexAttributes     = { "position", "normal", "textureCoord", "model", "pvm" };
-    const std::vector<GLchar*> fragmentAttributes   = {  };
+    // Obtain the lights in the scene.
+    const auto& lights = m_scene->getAllLights();
+    data.setLightCount (lights.size());
 
-    util::attachShader (m_program, vertexShader, vertexAttributes);
-    util::attachShader (m_program, fragmentShader, fragmentAttributes);
-
-    // Link the program
-    util::linkProgram (m_program);
-}
-
-
-void MyView::buildMeshData()
-{
-    // Begin to construct sponza.
-    const auto& builder = SceneModel::GeometryBuilder();
-    const auto& meshes  = builder.getAllMeshes();
-
-    // Resize our vector to speed up the loading process.
-    m_meshes.resize (meshes.size());
-
-    // Start by allocating enough memory in the VBOs to contain the scene.
-    size_t vertexSize { 0 }, elementSize { 0 };
-    util::calculateVBOSize (meshes, vertexSize, elementSize);
-    
-    util::allocateVBO (m_vertexVBO, vertexSize, GL_ARRAY_BUFFER, GL_STATIC_DRAW);
-    util::allocateVBO (m_elementVBO, elementSize, GL_ELEMENT_ARRAY_BUFFER, GL_STATIC_DRAW);
-    
-    // Bind our VBOs.
-    glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
-    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
-
-    // Iterate through each mesh adding them to the mesh container.
-    GLint  vertexIndex      { 0 }; 
-    GLuint elementOffset    { 0 };
-    
-    for (unsigned int i = 0; i < meshes.size(); ++i)
+    // Add each light to the data.
+    for (unsigned int i = 0; i < lights.size(); ++i)
     {
-        // Cache the current mesh.
-        const auto& mesh        = meshes[i];
-        const auto& elements    = mesh.getElementArray();
-        
-        // Initialise a new mesh.
-        Mesh* newMesh { new Mesh() };
-        newMesh->verticesIndex   = vertexIndex;
-        newMesh->elementsOffset  = elementOffset;
-        newMesh->elementCount    = elements.size();
-        
-        // Obtain the required vertex information.
-        std::vector<Vertex> vertices { };
-        assembleVertices (vertices, mesh);
-
-        // Fill the vertex buffer objects with data.
-        glBufferSubData (GL_ARRAY_BUFFER,           vertexIndex * sizeof (Vertex),  vertices.size() * sizeof (Vertex),                  vertices.data());
-        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (SceneModel::InstanceId),  elements.data());
-
-        // The vertexIndex needs an actual index value whereas elementOffset needs to be in bytes.
-        vertexIndex += vertices.size();
-        elementOffset += elements.size() * sizeof (SceneModel::InstanceId);
-
-        // Finally create the pair and add the mesh to the vector.
-        m_meshes[i] = { mesh.getId(), std::move (newMesh) };
-    }    
-
-    // Generate the instance pool buffer for the VAO.
-    glGenBuffers (1, &m_matricesPool);
-    glGenBuffers (1, &m_materialPool);
-    allocateInstancePool();
-
-    // Now we can construct the VAO and begin rendering!
-    constructVAO();
-}
-
-
-void MyView::buildMaterialData()
-{
-    // Obtain every material in the scene.
-    const auto& materials = m_scene->getAllMaterials();
-
-    // Iterate through them creating a buffer-ready material for each ID.
-    for (const auto& material : materials)
-    {
-        Material* bufferMaterial        = new Material();
-        bufferMaterial->diffuseColour   = material.getDiffuseColour();
-        bufferMaterial->specularColour  = material.getSpecularColour();
-        bufferMaterial->shininess       = material.getShininess();
-
-        // Add it to the map.
-        m_materials.emplace (material.getId(), bufferMaterial);
-    }
-}
-
-
-void MyView::assembleVertices (std::vector<Vertex>& vertices, const SceneModel::Mesh& mesh)
-{
-    // Obtain each attribute.
-    const auto& positions       = mesh.getPositionArray();
-    const auto& normals         = mesh.getNormalArray();
-    const auto& texturePoints   = mesh.getTextureCoordinateArray();
-
-    // Check how much data we need to allocate.
-    const auto size             = positions.size();
-    vertices.resize (size);
-
-    // Fill the actual data.
-    for (unsigned int i = 0; i < size; ++i)
-    {
-        vertices[i] = { positions[i], normals[i], texturePoints[i] };
-    }
-}
-
-
-void MyView::allocateInstancePool()
-{
-    // Pre-condition: We have a valid scene assigned.
-    if (m_scene)
-    {
-        // We'll need to keep track of the highest number of instances in the scene.
-        size_t highest = 0;
-
-        for (const auto& pair : m_meshes)
-        {
-            // Obtain the number of instances for the current mesh.
-            const size_t instances = m_scene->getInstancesByMeshId (pair.first).size();
-
-            // Update the highest value if necessary.
-            if (instances > highest)
-            {
-                highest = instances;
-            }
-        }
-
-        // Update the pool size.
-        m_poolSize = highest;
-
-        // Finally resize the buffers to the correct size. Remember we need two matrices.
-        glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
-        glBindBuffer (GL_TEXTURE_BUFFER, m_materialPool);
-
-        glBufferData (GL_ARRAY_BUFFER, sizeof (glm::mat4) * 2 * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
-        glBufferData (GL_TEXTURE_BUFFER, sizeof (Material) * m_poolSize, nullptr, GL_DYNAMIC_DRAW);
-        
-        // Unbind the buffers.
-        glBindBuffer (GL_ARRAY_BUFFER, 0);
-        glBindBuffer (GL_TEXTURE_BUFFER, 0);
-    }
-}
-
-
-void MyView::constructVAO()
-{
-    // Obtain the attribute pointer locations we'll be using to construct the VAO.
-    int position        { glGetAttribLocation (m_program, "position") };
-    int normal          { glGetAttribLocation (m_program, "normal") };
-    int textureCoord    { glGetAttribLocation (m_program, "textureCoord") };
-
-    int modelTransform  { glGetAttribLocation (m_program, "model") };
-    int pvmTransform    { glGetAttribLocation (m_program, "pvm") };
-
-    // Generate the VAO.
-    glGenVertexArrays (1, &m_sceneVAO);
-    glBindVertexArray (m_sceneVAO);
-
-    // Bind the element buffer to the VAO.
-    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
-
-    // Enable each attribute pointer.
-    glEnableVertexAttribArray (position);
-    glEnableVertexAttribArray (normal);
-    glEnableVertexAttribArray (textureCoord);
-
-    // Begin creating the vertex attribute pointer from the interleaved buffer.
-    glBindBuffer (GL_ARRAY_BUFFER, m_vertexVBO);
-
-    // Set the properties of each attribute pointer.
-    glVertexAttribPointer (position,        3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
-    glVertexAttribPointer (normal,          3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
-    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
-
-    // Now we need to create the instanced matrix attribute pointers.
-    glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
-
-    // We'll combine our matrices into a single VBO so we need the stride to be double.
-    util::createInstancedMatrix4 (modelTransform, sizeof (glm::mat4) * 2);
-    util::createInstancedMatrix4 (pvmTransform,   sizeof (glm::mat4) * 2, sizeof (glm::mat4));
-
-    // Unbind all buffers.
-    glBindBuffer (GL_ARRAY_BUFFER, 0);
-    glBindVertexArray (0);
-}
-
-
-void MyView::cleanMeshMaterials()
-{
-    // Clean the mesh vector.
-    for (auto& pair : m_meshes)
-    {
-        if (pair.second)
-        {
-            delete pair.second;
-            pair.second = nullptr;
-        }
+        data.setLight (i, lights[i]);   
     }
 
-    // Clean the materials map.
-    for (auto& pair : m_materials)
-    {
-        if (pair.second)
-        {
-            delete pair.second;
-            pair.second = nullptr;
-        }
-    }
+    // Map the buffer to overwrite it.
+    const auto buffer = glMapBuffer (GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
+    std::memcpy (buffer, &data, sizeof (UniformData));
 
-    m_meshes.clear();
-    m_materials.clear();
+    // Unmap the buffer so we can use it again.
+    glUnmapBuffer(GL_UNIFORM_BUFFER);
+
+    // Connect the buffer to the shaders.
+    const auto index = glGetUniformBlockIndex (m_program, "ubo");
+    glUniformBlockBinding (m_program, index, 0);
+    glBindBufferBase (GL_UNIFORM_BUFFER, 0, m_uniformUBO);
 }
 
 #pragma endregion

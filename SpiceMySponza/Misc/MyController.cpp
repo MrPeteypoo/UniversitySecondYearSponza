@@ -111,7 +111,10 @@ windowControlKeyboardChanged(std::shared_ptr<tygra::Window> window,
 
 	switch (key_index)
 	{
-		// TODO: put usual keypress responses here
+		// I will literally kill someone if I see "no case or default labels" again.
+        case 0:
+        default:
+            break;
 	}
 }
 
