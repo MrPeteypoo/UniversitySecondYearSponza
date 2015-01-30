@@ -15,6 +15,9 @@ flat    in      int             instanceID;     //!< Used in fetching instance-s
         out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
 
 
+/// <summary> Updates the ambient, diffuse and specular colours from the materialTBO for this fragment. </summary>
+void obtainMaterialProperties();
+
 /// <summary> Can be used to colour the scene using red, green or and blue triangles. </summary>
 /// <returns> A single colour based on the primitive ID of the current triangle. </returns>
 vec3 primitiveColour();
@@ -29,18 +32,21 @@ vec3 cameraPointLight();
 
 //float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
 
-const float ka          = 0.0;
-const float kd          = 1.0;
-const float ks          = 0.4;
-const float shininess   = 16.0;
+const float ka  = 0.0;
+const float kd  = 1.0;
+const float ks  = 0.0;
 
 vec3 ambient    = vec3 (1.0, 1.0, 1.0) * ka;
 vec3 diffuse    = vec3 (1.0, 1.0, 1.0) * kd;
 vec3 specular   = vec3 (1.0, 1.0, 1.0) * ks;
+float shininess = 16.0;
 
 
 void main()
 {
+    // Ensure we're using the correct colours.
+    obtainMaterialProperties();
+
     // Parameters.
     vec3 Q = worldPosition;
     vec3 N = normalize (worldNormal);
@@ -83,8 +89,25 @@ void main()
     }*/
     
     // Outcome.
-    fragmentColour = vec4 (ka + lighting, 1.0);
+    fragmentColour = vec4 (ambient + lighting, 1.0);
 }
+
+
+void obtainMaterialProperties()
+{
+    // We can use the instance ID to reconstruct the diffuse and specular colours from the RGBA material buffer.
+    // Each instanceID is allocated 16 bytes of data for the diffuse colour and 16 bytes for the specular colour.
+    vec4 diffusePart    = texelFetch (materialTBO, instanceID * 2);
+    vec4 specularPart   = texelFetch (materialTBO, instanceID * 2 + 1);
+    
+    // The alpha value of the diffuse is unused.
+    diffuse = vec3 (diffusePart.r, diffusePart.g, diffusePart.b) * kd;
+    
+    // The alpha value of the specular is the shininess value.
+    specular = vec3 (specularPart.r, specularPart.g, specularPart.b) * ks;
+    shininess = specularPart.a; 
+}
+
 
 vec3 cameraPointLight()
 {
@@ -94,12 +117,13 @@ vec3 cameraPointLight()
     float distance = length (cameraPosition - Q);
     vec3 L = (cameraPosition - Q) / distance;
 
-    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 250.0, false);
+    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 250.0, true);
     
     float lambertian = max (dot (L, N), 0);
 
     return light * (diffuse * lambertian);
 }
+
 
 vec3 primitiveColour()
 {
@@ -113,8 +137,6 @@ vec3 primitiveColour()
             return vec3 (0.0, 0.0, 1.0);
     }
 }
-
-
 
 
 float pointLightAttenuation (const float distance, const float range, bool useSmoothstep)
@@ -132,8 +154,7 @@ float pointLightAttenuation (const float distance, const float range, bool useSm
     
     // Calculate the final attenuation value.
     float attenuation = 1.0 / (kc + kl * distance + kq * distance * distance);
-    
-    // Comment the next line for smoothstep.
+
     return attenuation;    
 }
 
