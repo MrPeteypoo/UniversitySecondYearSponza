@@ -21,7 +21,7 @@ MyView::Material& MyView::Material::operator= (Material&& move)
     if (this != &move)
     {
         diffuseColour   = std::move (move.diffuseColour);
-        unused          = std::move (move.unused);
+        textureID       = std::move (move.textureID);
         specularColour  = std::move (move.specularColour);
         shininess       = std::move (move.shininess);
     }

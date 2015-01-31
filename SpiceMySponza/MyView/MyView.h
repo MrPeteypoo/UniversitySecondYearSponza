@@ -19,6 +19,7 @@
 
 
 // Forward declarations.
+namespace tygra { class Image; }
 struct Vertex;
 
 
@@ -72,14 +73,21 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Creates a material for each materialID in the map, ready for rendering. </summary>
         void buildMaterialData();
 
-        /// <summary> Loads all textures and texture buffers required for rendering. </summary>
-        void buildTextureData();
-
         /// <summary> Constructs the VAO for the scene using an interleaved vertex VBO and instanced transform matrices. </summary>
         void constructVAO();
 
         /// <summary> This will allocate enough memory in m_uniformVBO, m_materialPool and m_matricesPool for modification at run-time. </summary>
         void allocateExtraBuffers();
+
+        /// <summary> Prepares the material TBO and allocates storage for the texture array. </summary>
+        /// <param name="textureWidth"> The width each texture should be in the array. </param>
+        /// <param name="textureHeight"> The height each texture should be in the array. </param>
+        /// <param name="textureCount"> The total number of textures the array can store. </param>
+        void prepareTextureData (const GLsizei textureWidth, const GLsizei textureHeight, const GLsizei textureCount);
+
+        /// <summary> Loads every given image into the 2D texture array. </summary>
+        /// <param name="images"> The images to load. </param>
+        void loadTexturesIntoArray (const std::vector<std::pair<std::string, tygra::Image>>& images);
 
         /// <summary> Obtains each group of instances for each SceneModel::MeshId and determines the maximum number of instances we'll encounter. </summary>
         /// <returns> The highest instance count of each SceneModel::MeshId in the scene. </returns>
@@ -128,7 +136,7 @@ class MyView final : public tygra::WindowViewDelegate
         size_t                                                  m_poolSize          { 0 };          //!< The current size of the pool, useful for optimising rendering.
 
         GLuint                                                  m_materialTBO       { 0 };          //!< The materials texture buffer which points to the material pool buffer.
-        GLuint                                                  m_hexTBO            { 0 };          //!< The hex texture to be drawn on Sponza.
+        GLuint                                                  m_textureArray      { 0 };          //!< The TEXTURE_2D_ARRAY which contains each texture in the scene.
         
         float                                                   m_aspectRatio       { 0.f };        //!< The calculated aspect ratio of the foreground resolution for the application.
 

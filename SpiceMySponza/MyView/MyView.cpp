@@ -13,6 +13,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <SceneModel/SceneModel.hpp>
 #include <tgl/tgl.h>
+#include <tygra/FileHelper.hpp>
 
 
 
@@ -57,7 +58,6 @@ MyView& MyView::operator= (MyView&& move)
         m_poolSize      = std::move (move.m_poolSize);
 
         m_materialTBO   = std::move (move.m_materialTBO);
-        m_hexTBO        = std::move (move.m_hexTBO);
         
         m_aspectRatio   = std::move (move.m_aspectRatio);
 
@@ -105,9 +105,6 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
 
         // Allocate the required run-time memory for instancing.
         allocateExtraBuffers();
-    
-        // Finally load the textures.
-        buildTextureData();
     }
 }
 
@@ -147,7 +144,7 @@ void MyView::generateOpenGLObjects()
     glGenBuffers (1, &m_matricesPool);
 
     glGenTextures (1, &m_materialTBO);
-    glGenTextures (1, &m_hexTBO);
+    glGenTextures (1, &m_textureArray);
 }
 
 
@@ -202,6 +199,10 @@ void MyView::buildMeshData()
         // Finally create the pair and add the mesh to the vector.
         m_meshes[i] = { mesh.getId(), std::move (newMesh) };
     }
+
+    // Unbind the buffers.
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+    glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 
@@ -210,29 +211,53 @@ void MyView::buildMaterialData()
     // Obtain every material in the scene.
     const auto& materials = m_scene->getAllMaterials();
 
+    // Load all of the images in the scen
+    std::vector<std::pair<std::string, tygra::Image>> images    { };
+    util::loadImagesFromScene (images, materials);
+
+    // We need to prepare OpenGL for the texture data. Enforce the dimensions of the first loaded image.
+    if (!images.empty())
+    {
+        prepareTextureData (images[0].second.width(), images[0].second.height(), images.size());
+    }
+
+    // Just prepare the material pool.
+    else
+    {
+        prepareTextureData (0, 0, 0);
+    }
+
+    // Load the images onto the GPU.
+    loadTexturesIntoArray (images);
+
     // Iterate through them creating a buffer-ready material for each ID.
     for (const auto& material : materials)
     {
+        // Check which texture ID to use. If it can't be determined then -1 indicates none.
+        const auto& texture             = material.getAmbientMap();
+        int         textureID           = -1;
+
+        // Determine the textureID.
+        for (size_t i = 0; i < images.size(); ++i)
+        {
+            if (texture.compare (images[i].first))
+            {
+                // Cast back to an int otherwise we may have errors.
+                textureID = (int) i;
+                break;
+            }
+        }
+
+        // Create a buffer-ready material and fill it with correct data.
         Material* bufferMaterial        = new Material();
         bufferMaterial->diffuseColour   = material.getDiffuseColour();
+        bufferMaterial->textureID       = textureID;
         bufferMaterial->specularColour  = material.getSpecularColour();
         bufferMaterial->shininess       = material.getShininess();
 
         // Add it to the map.
         m_materials.emplace (material.getId(), bufferMaterial);
     }
-}
-
-
-void MyView::buildTextureData()
-{
-    // Active the material texture buffer and point it to the material pool VBO.
-    glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
-    glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
-
-    // Load in the hex texture.
-    util::generateTexture2D (m_hexTBO, "hex.png");
 }
 
 
@@ -296,6 +321,62 @@ void MyView::allocateExtraBuffers()
         // The matrices pool stores the model and PVM transformation matrices of each instance, therefore we need two.
         util::allocateBuffer (m_matricesPool, sizeof (glm::mat4) * 2 * m_poolSize, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
     }
+}
+
+
+void MyView::prepareTextureData (const GLsizei textureWidth, const GLsizei textureHeight, const GLsizei textureCount)
+{
+    // Active the material texture buffer and point it to the material pool VBO.
+    glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+    glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
+
+    // Enable the 2D texture array and prepare its storage.
+    glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
+    glTexStorage3D (GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, textureWidth, textureHeight, textureCount);
+
+    // Enable standard filters.
+    glTexParameteri (GL_TEXTURE_2D_ARRAY,   GL_TEXTURE_MAG_FILTER,  GL_LINEAR);
+    glTexParameteri (GL_TEXTURE_2D_ARRAY,   GL_TEXTURE_MIN_FILTER,  GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri (GL_TEXTURE_2D_ARRAY,   GL_TEXTURE_WRAP_S,      GL_REPEAT);
+    glTexParameteri (GL_TEXTURE_2D_ARRAY,   GL_TEXTURE_WRAP_T,      GL_REPEAT);
+
+    // Unbind the textures.
+    glBindTexture (GL_TEXTURE_BUFFER, 0);
+    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
+}
+
+
+void MyView::loadTexturesIntoArray (const std::vector<std::pair<std::string, tygra::Image>>& images)
+{
+    glBindBuffer (GL_TEXTURE_2D_ARRAY, m_textureArray); 
+
+    for (size_t i = 0; i < images.size(); ++i)
+    {
+        // Cache the image.
+        const auto& image = images[i].second;
+
+        // Only load the image if it contains data.
+        if (image.containsData()) 
+        {
+            // Enable each different pixel format.
+            GLenum pixel_formats[] = { 0, GL_RED, GL_RG, GL_RGB, GL_RGBA };
+
+            glTexSubImage3D (   GL_TEXTURE_2D_ARRAY, 0, 0, 0, i,
+                            
+                                // Dimensions and border.
+                                image.width(), image.height(), 0,   
+                      
+                                // Format and type.
+                                pixel_formats[image.componentsPerPixel()], image.bytesPerComponent() == 1 ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT,
+                      
+                                // Data.
+                                image.pixels());
+        }
+    }
+    
+    // Generate the mipmaps from the loaded texture and finish.
+    glGenerateMipmap (GL_TEXTURE_2D_ARRAY);
+    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
 }
 
 
@@ -366,8 +447,10 @@ void MyView::deleteOpenGLObjects()
     // Delete the program.
     glDeleteProgram (m_program);
     
-    // Delete all VAOs and VBOs.
+    // Delete the VAO.
     glDeleteVertexArrays (1, &m_sceneVAO);
+    
+    // Delete all VBOs.
     glDeleteBuffers (1, &m_vertexVBO);
     glDeleteBuffers (1, &m_elementVBO);
     glDeleteBuffers (1, &m_uniformUBO);
@@ -376,7 +459,7 @@ void MyView::deleteOpenGLObjects()
 
     // Delete all textures.
     glDeleteTextures (1, &m_materialTBO);
-    glDeleteTextures (1, &m_hexTBO);
+    glDeleteTextures (1, &m_textureArray);
 }
 
 #pragma endregion
@@ -425,12 +508,12 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
     glBindBuffer (GL_TEXTURE_BUFFER, m_materialPool);
 
-    // Specify the textures to use.
+    // Specify the texture buffers to use.
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
 
     glActiveTexture (GL_TEXTURE1);
-    glBindTexture (GL_TEXTURE_2D, m_hexTBO);
+    glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
     
     // Cache a vector full of model and PVM matrices for the rendering.
     std::vector<glm::mat4> matrices { };
@@ -457,7 +540,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
                 const auto& instance    = m_scene->getInstanceById (instances[i]);
 
                 // Obtain the current instances model transformation.
-                const auto model        = static_cast<glm::mat4> (instance.getTransformationMatrix());
+                const auto model        = (glm::mat4) instance.getTransformationMatrix();
 
                 // We have both the model and pvm matrices in the buffer so we need an offset.
                 const auto offset       = i * 2;
@@ -481,9 +564,9 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
                 }
             }
 
-            // Only overwrite the required data to speed up the buffering process. Avoid glMapBuffer because it's ridiculous slow in this case.
-            glBufferSubData (GL_ARRAY_BUFFER, 0, sizeof (glm::mat4) * 2 * size, matrices.data());
-            glBufferSubData (GL_TEXTURE_BUFFER, 0, sizeof (Material) * size, materials.data());
+            // Only overwrite the required data to speed up the buffering process. Avoid glMapBuffer because it's ridiculously slow in this case.
+            glBufferSubData (GL_ARRAY_BUFFER, 0,    sizeof (glm::mat4) * 2 * size,  matrices.data());
+            glBufferSubData (GL_TEXTURE_BUFFER, 0,  sizeof (Material) * size,       materials.data());
             
             // Cache access to the current mesh.
             const auto& mesh = pair.second;
@@ -494,12 +577,11 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     }
 
     // Unbind all buffers.
-    glBindTexture (GL_TEXTURE_2D, 0);
-    glBindTexture (GL_TEXTURE_BUFFER, 0);
-    glBindBuffer (GL_UNIFORM_BUFFER, 0);
-    glBindBuffer (GL_TEXTURE_BUFFER, 0);
-    glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindVertexArray (0);
+    glBindBuffer (GL_ARRAY_BUFFER, 0);
+    glBindBuffer (GL_TEXTURE_BUFFER, 0);
+    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
+    glBindTexture (GL_TEXTURE_BUFFER, 0);
 }
 
 
@@ -527,6 +609,8 @@ void MyView::setUniforms (UniformData& data)
     const auto index = glGetUniformBlockIndex (m_program, "ubo");
     glUniformBlockBinding (m_program, index, 0);
     glBindBufferBase (GL_UNIFORM_BUFFER, 0, m_uniformUBO);
+
+    glBindBuffer (GL_UNIFORM_BUFFER, 0);
 }
 
 #pragma endregion

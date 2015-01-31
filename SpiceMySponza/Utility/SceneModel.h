@@ -9,7 +9,8 @@
 
 
 // Forward declarations.
-namespace SceneModel { class Context; class Mesh; }
+namespace SceneModel { class Material; class Mesh; }
+namespace tygra { class Image; }
 struct Vertex;
 
 
@@ -26,6 +27,12 @@ namespace util
     /// <param name="vertexSize"> The calculated size that a vertex array buffer needs to be. </param>
     /// <param name="elementSize"> The calculated size that an element array buffer needs to be. </param>
     void calculateVBOSize (const std::vector<SceneModel::Mesh>& meshes, size_t& vertexSize, size_t& elementSize);
+
+
+    /// <summary> Iterates through every material in a scene and fills the given vector with image data. </summary>
+    /// <param name="images"> The vector to fill with data. This will generate filename-image pairs. </param>
+    /// <param name="materials"> A container of materials to iterate through. </param>
+    void loadImagesFromScene (std::vector<std::pair<std::string, tygra::Image>>& images, const std::vector<SceneModel::Material>& materials);
 }
 
 #endif // _UTIL_SCENE_MODEL_

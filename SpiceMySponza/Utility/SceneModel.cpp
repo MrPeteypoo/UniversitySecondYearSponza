@@ -3,7 +3,9 @@
 
 
 // Engine headers.
+#include <SceneModel/Material.hpp>
 #include <SceneModel/Mesh.hpp>
+#include <tygra/FileHelper.hpp>
 
 
 
@@ -47,6 +49,25 @@ namespace util
         for (unsigned int i = 0; i < size; ++i)
         {
             vertices[i] = { positions[i], normals[i], texturePoints[i] };
+        }
+    }
+
+
+    void loadImagesFromScene (std::vector<std::pair<std::string, tygra::Image>>& images, const std::vector<SceneModel::Material>& materials)
+    {
+        // Ensure the vector is empty.
+        images.clear();
+
+        for (const auto& material : materials)
+        {
+            // Attempt to load each image.
+            auto filename   = material.getAmbientMap();
+            auto image      = tygra::imageFromPNG (material.getAmbientMap());
+
+            if (image.containsData())
+            {
+                images.push_back ({ std::move (filename), std::move (image) });
+            }
         }
     }
 }
