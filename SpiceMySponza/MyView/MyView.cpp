@@ -432,7 +432,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     glActiveTexture (GL_TEXTURE1);
     glBindTexture (GL_TEXTURE_2D, m_hexTBO);
     
-    // Cache a vector full of model and PVM matrices for the rendering. 640
+    // Cache a vector full of model and PVM matrices for the rendering.
     std::vector<glm::mat4> matrices { };
     matrices.resize (m_poolSize * 2);
 
@@ -450,16 +450,6 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
         // Check if we need to do any rendering at all.
         if (size != 0)
         {
-            //const auto matrices     = (char*) glMapBufferRange (GL_ARRAY_BUFFER, 0, 0, GL_MAP_WRITE_BIT);
-            //const auto materials    = (char*) glMapBufferRange (GL_TEXTURE_BUFFER, 0, 0, GL_MAP_WRITE_BIT);
-            //const auto matrices     = (glm::mat4*) glMapBuffer (GL_ARRAY_BUFFER, GL_WRITE_ONLY | GL_MAP_INVALIDATE_BUFFER_BIT);
-            //const auto materials    = (Material*) glMapBuffer (GL_TEXTURE_BUFFER, GL_WRITE_ONLY | GL_MAP_INVALIDATE_BUFFER_BIT);
-
-            /*if (glGetError() == GL_INVALID_OPERATION)
-            {
-                std::cerr << "Sadface" << std::endl;
-            }*/
-
             // Update the instance-specific information.
             for (unsigned int i = 0; i < size; ++i)
             {
@@ -470,10 +460,6 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
                 const auto model        = static_cast<glm::mat4> (instance.getTransformationMatrix());
 
                 // We have both the model and pvm matrices in the buffer so we need an offset.
-                //const auto offset       = matrices + i * sizeof (glm::mat4) * 2;
-
-                //std::memcpy (offset, &model, sizeof (glm::mat4));
-                //std::memcpy (offset + sizeof (glm::mat4), &(projection * view * model), sizeof (glm::mat4));
                 const auto offset       = i * 2;
 
                 matrices[offset]        = model;
@@ -494,9 +480,6 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
                     materials[i]            = *m_materials.at (materialID);
                 }
             }
-
-            //glUnmapBuffer (GL_ARRAY_BUFFER);
-            //glUnmapBuffer (GL_TEXTURE_BUFFER);
 
             // Only overwrite the required data to speed up the buffering process. Avoid glMapBuffer because it's ridiculous slow in this case.
             glBufferSubData (GL_ARRAY_BUFFER, 0, sizeof (glm::mat4) * 2 * size, matrices.data());
@@ -538,12 +521,6 @@ void MyView::setUniforms (UniformData& data)
 
     // Map the buffer to overwrite it.
     glBindBuffer (GL_UNIFORM_BUFFER, m_uniformUBO);
-    
-    /*const auto buffer = glMapBuffer (GL_UNIFORM_BUFFER, GL_WRITE_ONLY);
-    std::memcpy (buffer, &data, sizeof (UniformData));
-
-    // Unmap the buffer so we can use it again.
-    glUnmapBuffer(GL_UNIFORM_BUFFER);*/
     glBufferSubData (GL_UNIFORM_BUFFER, 0, sizeof (UniformData), &data);
 
     // Connect the buffer to the shaders.
