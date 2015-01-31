@@ -4,6 +4,17 @@
 #version 330
 
 
+/// <summary> The uniform buffer scene specific information. </summary>
+layout (std140) uniform scene
+{
+    mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
+    mat4    view;               //!< The view transform representing where the camera is looking.
+
+    vec3    cameraPosition;     //!< Contains the position of the camera in world space.
+    vec3    ambience;           //!< The ambient lighting in the scene.
+};
+
+
 layout (location = 0)   in      vec3    position;       //!< The local position of the current vertex.
 layout (location = 1)   in      vec3    normal;         //!< The local normal vector of the current vertex.
 layout (location = 2)   in      vec2    textureCoord;   //!< The texture co-ordinates for the vertex, used for mapping a texture to the object.

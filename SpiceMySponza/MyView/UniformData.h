@@ -17,8 +17,12 @@
 namespace SceneModel { class Light; }
 
 
+// Using declarations.
+using GLuint    = unsigned int;
+
+
 /// <summary> 
-/// A basic structure used for writing to a Uniform Buffer Object which represents shader information.
+/// A basic class used for writing to a Uniform Buffer Object which represents shader information.
 /// </summary>
 class MyView::UniformData final
 {
@@ -64,6 +68,28 @@ class MyView::UniformData final
         
         /// <summary> Converts the desired light into shader-ready format. </summary>
         void setLight (const unsigned int index, const SceneModel::Light& sceneLight);
+
+        #pragma endregion
+
+        #pragma region Binding/offset information        
+
+        /// <summary> Gets the binding block index for the scene UBO. </summary>
+        static GLuint sceneBlock()      { return 0; }
+
+        /// <summary> Calculate the offset for the scene UBO in bytes. </summary>
+        static GLuint sceneOffset()     { return 0; }
+
+        /// <summary> Calculates the size of the scene UBO in bytes. </summary>
+        static GLuint sceneSize()       { return lightingOffset(); }
+
+        /// <summary> Gets the binding block index for the lighting UBO. </summary>
+        static GLuint lightingBlock()   { return 1; }
+
+        /// <summary> Calculates the offset for the lighting UBO in bytes. </summary>
+        static GLuint lightingOffset()  { return sizeof (UniformData) - lightingSize(); }
+
+        /// <summary> Calculates the size of the lighting UBO in bytes. </summary>
+        static GLuint lightingSize()    { return sizeof (Light) * MAX_LIGHTS + sizeof (unsigned int); }
 
         #pragma endregion
 

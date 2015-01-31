@@ -498,11 +498,8 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     const auto  projection      = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
                 view            = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
     
-    // I'd rather setUniforms() done everything but then I'd have to pass through glm::mat4 objects, they aren't easy to forward declare!
-    UniformData data { };
-    data.setProjectionMatrix (projection);
-    data.setViewMatrix (view);
-    setUniforms (data);
+    // Set the uniforms.
+    setUniforms (&projection, &view);
     
     // Specify the VAO to use.
     glBindVertexArray (m_sceneVAO);
@@ -586,9 +583,19 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 }
 
 
-void MyView::setUniforms (UniformData& data)
+void MyView::setUniforms (const void* const projectionMatrix, const void* const viewMatrix)
 {
-    // Obtain the correct data for the uniforms.
+    // Create data to fill.
+    UniformData data { };
+
+    // Obtain the correct data for the uniforms. We'll need to cast the pointers, this is dirty but it prevents calculating the matrices twice
+    // or including GLM in the MyView header.
+    if (projectionMatrix && viewMatrix)
+    {
+        data.setProjectionMatrix (*(glm::mat4*) projectionMatrix);
+        data.setViewMatrix (*(glm::mat4*) viewMatrix);
+    }
+
     data.setCameraPosition (m_scene->getCamera().getPosition());
     data.setAmbientColour (m_scene->getAmbientLightIntensity());
 
@@ -602,14 +609,28 @@ void MyView::setUniforms (UniformData& data)
         data.setLight (i, lights[i]);   
     }
 
-    // Map the buffer to overwrite it.
+    // Overwrite the current uniform data.
     glBindBuffer (GL_UNIFORM_BUFFER, m_uniformUBO);
     glBufferSubData (GL_UNIFORM_BUFFER, 0, sizeof (UniformData), &data);
 
-    // Connect the buffer to the shaders.
-    const auto index = glGetUniformBlockIndex (m_program, "ubo");
-    glUniformBlockBinding (m_program, index, 0);
-    glBindBufferBase (GL_UNIFORM_BUFFER, 0, m_uniformUBO);
+    /// This part here may be confusing. There is only one Uniform Buffer Object in MyView and we use the UniformData class to manage how that 
+    /// data is managed by the shaders. Although all of the data is maintained in the class itself, we split it into "scene" and "lighting"
+    /// segments. We point the binding blocks to the correct parts of the UBO using the information UniformData gives us.
+    ///
+    /// I would rather UniformData had a Scene and Lighting class which meant the size and offset calculations were less brittle but that's for
+    /// another day.
+
+    // Determine the UBO indices.
+    const auto scene = glGetUniformBlockIndex (m_program, "scene");
+    const auto lighting = glGetUniformBlockIndex (m_program, "lighting");
+    
+    // Bind the scene to the first block and the lighting to the second block.
+    glUniformBlockBinding (m_program, scene, data.sceneBlock());
+    glUniformBlockBinding (m_program, lighting, data.lightingBlock());
+    
+    // Use the magic data contained in UniformData to separate the UBO into segments.
+    glBindBufferRange (GL_UNIFORM_BUFFER, data.sceneBlock(), m_uniformUBO, data.sceneOffset(), data.sceneSize());
+    glBindBufferRange (GL_UNIFORM_BUFFER, data.lightingBlock(), m_uniformUBO, data.lightingOffset(), data.lightingSize());
 
     // Unbind the buffer.
     glBindBuffer (GL_UNIFORM_BUFFER, 0);

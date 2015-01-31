@@ -116,9 +116,10 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Renders the given scene, the object should be initialised before calling this. </summary>
         void windowViewRender (std::shared_ptr<tygra::Window> window) override final;
 
-        /// <summary> Fills the Uniform Buffer Object with the correct data for this frame. </summary>
-        /// <param name="data"> The data object to use, this should contain a correct projection and view matrix. </param>
-        void setUniforms (UniformData& data);
+        /// <summary> Sets all uniform values for the scene. Avoid including GLM in MyView by passing void*. </summary>
+        /// <param name="projectionMatrix"> A pointer to a glm::mat4 projection matrix for the scene. </param>
+        /// <param name="projectionMatrix"> A pointer to a glm::mat4 view matrix for the scene. </param>
+        void setUniforms (const void* const projectionMatrix, const void* const viewMatrix);
 
         #pragma endregion
 

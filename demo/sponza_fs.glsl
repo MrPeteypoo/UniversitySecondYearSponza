@@ -20,15 +20,20 @@ struct Light
 };
 
 
-/// <summary> The uniform buffer for each shader. </summary>
-layout (std140) uniform ubo
+/// <summary> The uniform buffer scene specific information. </summary>
+layout (std140) uniform scene
 {
     mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
     mat4    view;               //!< The view transform representing where the camera is looking.
 
     vec3    cameraPosition;     //!< Contains the position of the camera in world space.
     vec3    ambience;           //!< The ambient lighting in the scene.
-    
+};
+
+
+/// <summary> The uniform buffer containing lighting data. </summary>
+layout (std140) uniform lighting
+{
     uint    numLights;          //!< The number of lights in use.
     Light   lights[MAX_LIGHTS]; //!< The lighting data of each light in the scene.
 };
