@@ -22,7 +22,6 @@ Vertex& Vertex::operator= (Vertex&& move)
     {
         position        = std::move (move.position);
         normal          = std::move (move.normal);
-        baryPoint       = std::move (move.baryPoint);
         texturePoint    = std::move (move.texturePoint);
     }
 

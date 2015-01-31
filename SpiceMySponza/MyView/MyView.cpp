@@ -189,8 +189,8 @@ void MyView::buildMeshData()
         util::assembleVertices (vertices, mesh);
 
         // Fill the vertex buffer objects with data.
-        glBufferSubData (GL_ARRAY_BUFFER,           vertexIndex * sizeof (Vertex),  vertices.size() * sizeof (Vertex),                  vertices.data());
-        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (unsigned int),  elements.data());
+        glBufferSubData (GL_ARRAY_BUFFER,           vertexIndex * sizeof (Vertex),  vertices.size() * sizeof (Vertex),          vertices.data());
+        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (unsigned int),    elements.data());
 
         // The vertexIndex needs an actual index value whereas elementOffset needs to be in bytes.
         vertexIndex += vertices.size();
@@ -286,7 +286,6 @@ void MyView::constructVAO()
     // Obtain the attribute pointer locations we'll be using to construct the VAO.
     int position        { glGetAttribLocation (m_program, "position") };
     int normal          { glGetAttribLocation (m_program, "normal") };
-    int baryCoord       { glGetAttribLocation (m_program, "baryCoord") };
     int textureCoord    { glGetAttribLocation (m_program, "textureCoord") };
 
     int modelTransform  { glGetAttribLocation (m_program, "model") };
@@ -301,7 +300,6 @@ void MyView::constructVAO()
     // Enable each attribute pointer.
     glEnableVertexAttribArray (position);
     glEnableVertexAttribArray (normal);
-    glEnableVertexAttribArray (baryCoord);
     glEnableVertexAttribArray (textureCoord);
 
     // Begin creating the vertex attribute pointer from the interleaved buffer.
@@ -310,8 +308,7 @@ void MyView::constructVAO()
     // Set the properties of each attribute pointer.
     glVertexAttribPointer (position,        3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
     glVertexAttribPointer (normal,          3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
-    glVertexAttribPointer (baryCoord,       3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
-    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (36));
+    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
 
     // Now we need to create the instanced matrices attribute pointers.
     glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
@@ -335,7 +332,7 @@ void MyView::prepareTextureData (const GLsizei textureWidth, const GLsizei textu
 
     // Enable the 2D texture array and prepare its storage. Use 8 mipmap levels.
     glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
-    glTexStorage3D (GL_TEXTURE_2D_ARRAY, 8, GL_RGBA, textureWidth, textureHeight, textureCount);
+    glTexStorage3D (GL_TEXTURE_2D_ARRAY, 8, GL_RGBA32F, textureWidth, textureHeight, textureCount);
 
     // Enable standard filters.
     glTexParameteri (GL_TEXTURE_2D_ARRAY,   GL_TEXTURE_MAG_FILTER,  GL_LINEAR);
@@ -513,6 +510,8 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     // Specify the texture buffers to use.
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
+
+    glActiveTexture (GL_TEXTURE1);
     glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
     
     // Cache a vector full of model and PVM matrices for the rendering.
@@ -587,6 +586,13 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 
 void MyView::setUniforms (const void* const projectionMatrix, const void* const viewMatrix)
 {
+    // Fix the stupid lab computers not liking how I use textures.
+    const auto materialBuffer   = glGetUniformLocation (m_program, "materialBuffer");
+    const auto textureArray     = glGetUniformLocation (m_program, "textureArray");
+    
+    glUniform1i (materialBuffer, 0);
+    glUniform1i (textureArray, 1);
+
     // Create data to fill.
     UniformData data { };
 

@@ -92,6 +92,7 @@ MyView::UniformData::Light& MyView::UniformData::Light::operator= (Light&& move)
 
         coneAngle   = std::move (move.coneAngle);
         cConstant   = std::move (move.cConstant);
+        cLinear     = std::move (move.cLinear);
         cQuadratic  = std::move (move.cQuadratic);
     }
 

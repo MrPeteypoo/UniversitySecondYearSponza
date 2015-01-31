@@ -108,6 +108,7 @@ class MyView::UniformData final
 
             float       coneAngle   { 45.f };       //!< The angle of the light cone in degrees.
             float       cConstant   { 1.f };        //!< The constant co-efficient for the attenutation formula.
+            float       cLinear     { 0.f };        //!< The linear co-efficient for the attenutation formula.
             float       cQuadratic  { 1.f };        //!< The quadratic co-efficient for the attenuation formula.
 
             Light()                                 = default;
