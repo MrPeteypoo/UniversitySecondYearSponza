@@ -45,6 +45,7 @@ layout (std140) uniform lighting
 
         in      vec3            worldPosition;  //!< The fragments position vector in world space.
         in      vec3            worldNormal;    //!< The fragments normal vector in world space.
+        in      vec3            baryPoint;      //!< The barycentric co-ordinate of the current fragment, useful for wireframe rendering.
         in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
 flat    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
 
@@ -65,6 +66,7 @@ vec3 primitiveColour();
 float pointLightAttenuation (const float distance, const float range, bool useSmoothstep);
 
 vec3 cameraPointLight();
+vec4 barycentric();
 
 
 //float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
@@ -85,6 +87,7 @@ float shininess     = 16.0;
 
 void main()
 {
+    
     // Ensure we're using the correct colours.
     obtainMaterialProperties();
 
@@ -131,6 +134,7 @@ void main()
     
     // Outcome.
     fragmentColour = vec4 (ambience * ambientMap + lighting, 1.0);
+    //fragmentColour = barycentric();
 }
 
 
@@ -173,7 +177,7 @@ vec3 cameraPointLight()
     float distance = length (cameraPosition - Q);
     vec3 L = (cameraPosition - Q) / distance;
 
-    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 100.0, false);
+    vec3 light = vec3 (1.0, 1.0, 1.0) * pointLightAttenuation (distance, 500.0, false);
     
     float lambertian = max (dot (L, N), 0);
 
@@ -228,3 +232,14 @@ float spotLightAttenuation (const Light light, const vec3 L, const float distanc
     return numerator / denominator;
     return numerator * smoothstep (1.0, 0.0, distance / light.range);
 }*/
+
+float edgeFactor(){
+    vec3 d = fwidth(baryPoint);
+    vec3 a3 = smoothstep(vec3(0.0), d*1.5, baryPoint);
+    return min(min(a3.x, a3.y), a3.z);
+}
+
+vec4 barycentric()
+{
+    return vec4 (mix (vec3 (1.0), vec3 (0.0), edgeFactor()), 1.0);
+}

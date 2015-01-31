@@ -16,7 +16,8 @@ struct Vertex final
     #pragma region Implementation data
 
     glm::vec3   position        { 0 },  //!< The position vector of the vertex.
-                normal          { 0 };  //!< The normal vector for the vertex.
+                normal          { 0 },  //!< The normal vector for the vertex.
+                baryPoint       { 0 };  //!< The barycentric co-ordinate for the vertex.  
     glm::vec2   texturePoint    { 0 };  //!< The texture co-ordinate of the vertex.
 
     #pragma endregion
@@ -28,7 +29,9 @@ struct Vertex final
     Vertex& operator= (const Vertex& copy)  = default;
     ~Vertex()                               = default;
 
-    Vertex (const glm::vec3& position, const glm::vec3& normal, const glm::vec2& texturePoint)  : position (position), normal (normal), texturePoint (texturePoint) { }
+    Vertex (const glm::vec3& pos, const glm::vec3& norm, const glm::vec3& bary, const glm::vec2& texture)  
+        : position (pos), normal (norm), baryPoint (bary), texturePoint (texture) { }
+    
     Vertex (Vertex&& move);
     Vertex& operator= (Vertex&& move);
 

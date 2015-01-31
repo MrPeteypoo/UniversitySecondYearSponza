@@ -190,11 +190,11 @@ void MyView::buildMeshData()
 
         // Fill the vertex buffer objects with data.
         glBufferSubData (GL_ARRAY_BUFFER,           vertexIndex * sizeof (Vertex),  vertices.size() * sizeof (Vertex),                  vertices.data());
-        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (SceneModel::InstanceId),  elements.data());
+        glBufferSubData (GL_ELEMENT_ARRAY_BUFFER,   elementOffset,                  elements.size() * sizeof (unsigned int),  elements.data());
 
         // The vertexIndex needs an actual index value whereas elementOffset needs to be in bytes.
         vertexIndex += vertices.size();
-        elementOffset += elements.size() * sizeof (SceneModel::InstanceId);
+        elementOffset += elements.size() * sizeof (unsigned int);
 
         // Finally create the pair and add the mesh to the vector.
         m_meshes[i] = { mesh.getId(), std::move (newMesh) };
@@ -219,7 +219,6 @@ void MyView::allocateExtraBuffers()
 
     // The matrices pool stores the model and PVM transformation matrices of each instance, therefore we need two.
     util::allocateBuffer (m_matricesPool, sizeof (glm::mat4) * 2 * m_poolSize, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-    
 }
 
 
@@ -287,6 +286,7 @@ void MyView::constructVAO()
     // Obtain the attribute pointer locations we'll be using to construct the VAO.
     int position        { glGetAttribLocation (m_program, "position") };
     int normal          { glGetAttribLocation (m_program, "normal") };
+    int baryCoord       { glGetAttribLocation (m_program, "baryCoord") };
     int textureCoord    { glGetAttribLocation (m_program, "textureCoord") };
 
     int modelTransform  { glGetAttribLocation (m_program, "model") };
@@ -301,6 +301,7 @@ void MyView::constructVAO()
     // Enable each attribute pointer.
     glEnableVertexAttribArray (position);
     glEnableVertexAttribArray (normal);
+    glEnableVertexAttribArray (baryCoord);
     glEnableVertexAttribArray (textureCoord);
 
     // Begin creating the vertex attribute pointer from the interleaved buffer.
@@ -309,7 +310,8 @@ void MyView::constructVAO()
     // Set the properties of each attribute pointer.
     glVertexAttribPointer (position,        3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (0));
     glVertexAttribPointer (normal,          3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (12));
-    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
+    glVertexAttribPointer (baryCoord,       3, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (24));
+    glVertexAttribPointer (textureCoord,    2, GL_FLOAT, GL_FALSE, sizeof (Vertex), TGL_BUFFER_OFFSET (36));
 
     // Now we need to create the instanced matrices attribute pointers.
     glBindBuffer (GL_ARRAY_BUFFER, m_matricesPool);
@@ -622,15 +624,24 @@ void MyView::setUniforms (const void* const projectionMatrix, const void* const 
 
     // Determine the UBO indices.
     const auto scene = glGetUniformBlockIndex (m_program, "scene");
+
+    if (scene < std::numeric_limits<unsigned int>::max())
+    {
+        glUniformBlockBinding (m_program, scene, data.sceneBlock());
+
+        // Use the magic data contained in UniformData to separate the UBO into segments.
+        glBindBufferRange (GL_UNIFORM_BUFFER, data.sceneBlock(), m_uniformUBO, data.sceneOffset(), data.sceneSize());
+    }
+
     const auto lighting = glGetUniformBlockIndex (m_program, "lighting");
     
-    // Bind the scene to the first block and the lighting to the second block.
-    glUniformBlockBinding (m_program, scene, data.sceneBlock());
-    glUniformBlockBinding (m_program, lighting, data.lightingBlock());
+    if (lighting < std::numeric_limits<unsigned int>::max())
+    {
+        glUniformBlockBinding (m_program, lighting, data.lightingBlock());
     
-    // Use the magic data contained in UniformData to separate the UBO into segments.
-    glBindBufferRange (GL_UNIFORM_BUFFER, data.sceneBlock(), m_uniformUBO, data.sceneOffset(), data.sceneSize());
-    glBindBufferRange (GL_UNIFORM_BUFFER, data.lightingBlock(), m_uniformUBO, data.lightingOffset(), data.lightingSize());
+        // Use the magic data contained in UniformData to separate the UBO into segments.
+        glBindBufferRange (GL_UNIFORM_BUFFER, data.lightingBlock(), m_uniformUBO, data.lightingOffset(), data.lightingSize());
+    }
 
     // Unbind the buffer.
     glBindBuffer (GL_UNIFORM_BUFFER, 0);

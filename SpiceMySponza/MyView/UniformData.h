@@ -129,6 +129,8 @@ class MyView::UniformData final
         glm::vec3       m_cameraPosition        { 0, 0, 0 };    //!< The world-space position of the camera.
         glm::vec3       m_ambience              { 1, 1, 1 };    //!< The ambient colour of the scene.
 
+        float           unused[26];                             //!< An unused block for 256-byte alignment.
+
         unsigned int    m_numLights             { 0 };          //!< The number of lights currently in the scene.
         Light           m_lights[MAX_LIGHTS]    { };            //!< Data for each light in the scene.
 

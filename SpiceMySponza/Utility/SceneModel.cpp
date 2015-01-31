@@ -48,7 +48,24 @@ namespace util
         // Fill the actual data.
         for (unsigned int i = 0; i < size; ++i)
         {
-            vertices[i] = { positions[i], normals[i], texturePoints[i] };
+            // We need to use the correct barycentric co-ordinate for each vertex.
+            glm::vec3 barycentricCoordinate { };
+
+            switch (i % 3)
+            {
+                case 0:
+                    barycentricCoordinate = glm::vec3 (1.0, 0.0, 0.0);
+                    break;
+
+                case 1:
+                    barycentricCoordinate = glm::vec3 (0.0, 1.0, 0.0);
+                    break;
+                case 2:
+                    barycentricCoordinate = glm::vec3 (0.0, 0.0, 1.0);
+                    break;
+            }
+
+            vertices[i] = { positions[i], normals[i], barycentricCoordinate, texturePoints[i] };
         }
     }
 
