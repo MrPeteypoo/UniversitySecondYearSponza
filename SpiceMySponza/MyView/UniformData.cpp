@@ -86,14 +86,16 @@ MyView::UniformData::Light& MyView::UniformData::Light::operator= (Light&& move)
     // Avoid moving self to self.
     if (this != &move)
     {
-        position    = std::move (move.position);
-        direction   = std::move (move.direction);
-        colour      = std::move (move.colour);
+        position        = std::move (move.position);
+        direction       = std::move (move.direction);
+        colour          = std::move (move.colour);
 
-        coneAngle   = std::move (move.coneAngle);
-        cConstant   = std::move (move.cConstant);
-        cLinear     = std::move (move.cLinear);
-        cQuadratic  = std::move (move.cQuadratic);
+        concentration   = std::move (move.concentration);
+        coneAngle       = std::move (move.coneAngle);
+
+        cConstant       = std::move (move.cConstant);
+        cLinear         = std::move (move.cLinear);
+        cQuadratic      = std::move (move.cQuadratic);
     }
 
     return *this;

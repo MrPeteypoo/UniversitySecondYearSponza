@@ -88,6 +88,10 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
 {
     assert (m_scene != nullptr);
     
+    // Enable the required GL parameters.
+    glEnable (GL_DEPTH_TEST);
+    glEnable (GL_CULL_FACE);
+    
     // Ensure the program gets built.
     if (buildProgram())
     {
@@ -483,9 +487,6 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     assert (m_scene != nullptr);
 
     // Prepare the screen.
-    glEnable (GL_DEPTH_TEST);
-    glEnable (GL_CULL_FACE);
-
     glClear (GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glClearColor (0.f, 0.1f, 0.f, 0.f);
 

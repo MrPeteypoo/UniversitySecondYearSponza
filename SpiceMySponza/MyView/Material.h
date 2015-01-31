@@ -19,10 +19,10 @@ struct MyView::Material final
 {
     #pragma region Implementation data
 
-    glm::vec3   diffuseColour   { 0, 0, 0 };    //!< The diffuse colour of the material.
-    float       textureID       { -1.f };       //!< The index of the texture in the 2D texture array. -1 indicates no texture.
-    glm::vec3   specularColour  { 1, 1, 1 };    //!< The specular colour of the material.
-    float       shininess       { 0.f };        //!< The shininess factor of the specular colour.
+    glm::vec3   diffuseColour   { 1.f };    //!< The diffuse colour of the material.
+    float       textureID       { -1.f };   //!< The index of the texture in the 2D texture array. -1 indicates no texture.
+    glm::vec3   specularColour  { 1.f };    //!< The specular colour of the material.
+    float       shininess       { 0.f };    //!< The shininess factor of the specular colour.
 
     #pragma endregion
 

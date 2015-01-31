@@ -21,6 +21,10 @@ namespace SceneModel { class Light; }
 using GLuint    = unsigned int;
 
 
+// We shall manage the byte alignment ourselves since it needs to be aligned properly for the GPU.
+#pragma pack (push, 1)
+
+
 /// <summary> 
 /// A basic class used for writing to a Uniform Buffer Object which represents shader information.
 /// </summary>
@@ -102,14 +106,16 @@ class MyView::UniformData final
         /// </summary>
         struct Light final
         {
-            glm::vec3   position    { 0, 0, 0 };    //!< The world position of the light in the scene.
-            glm::vec3   direction   { 1, 0, 0 };    //!< The direction of the light.
-            glm::vec3   colour      { 1, 1, 1 };    //!< The un-attenuated colour of the light.
+            glm::vec3   position        { 1.f, 1.f, 1.f };  //!< The world position of the light in the scene.
+            glm::vec3   direction       { 1.f, 1.f, 1.f };  //!< The direction of the light.
+            glm::vec3   colour          { 1.f, 1.f, 1.f };  //!< The un-attenuated colour of the light.
+            
+            float       concentration   { 1.f };            //!< How concentrated the luminance of the spot light is.
+            float       coneAngle       { 45.f };           //!< The angle of the light cone in degrees.
 
-            float       coneAngle   { 45.f };       //!< The angle of the light cone in degrees.
-            float       cConstant   { 1.f };        //!< The constant co-efficient for the attenutation formula.
-            float       cLinear     { 0.f };        //!< The linear co-efficient for the attenutation formula.
-            float       cQuadratic  { 1.f };        //!< The quadratic co-efficient for the attenuation formula.
+            float       cConstant       { 1.f };            //!< The constant co-efficient for the attenutation formula.
+            float       cLinear         { 0.f };            //!< The linear co-efficient for the attenutation formula.
+            float       cQuadratic      { 1.f };            //!< The quadratic co-efficient for the attenuation formula.
 
             Light()                                 = default;
             Light (const Light& copy)               = default;
@@ -124,18 +130,21 @@ class MyView::UniformData final
     
         #pragma region Implementation data
 
-        glm::mat4       m_projection            { 1 };          //!< The project matrix used during the rendering of the current frame.
-        glm::mat4       m_view                  { 1 };          //!< The view matrix from the current cameras position and direction.
+        glm::mat4       m_projection            { 1.f };            //!< The project matrix used during the rendering of the current frame.
+        glm::mat4       m_view                  { 1.f };            //!< The view matrix from the current cameras position and direction.
 
-        glm::vec3       m_cameraPosition        { 0, 0, 0 };    //!< The world-space position of the camera.
-        glm::vec3       m_ambience              { 1, 1, 1 };    //!< The ambient colour of the scene.
+        glm::vec3       m_cameraPosition        { 0.f, 0.f, 0.f };  //!< The world-space position of the camera.
+        glm::vec3       m_ambience              { 1.f, 1.f, 1.f };  //!< The ambient colour of the scene.
 
-        float           unused[26];                             //!< An unused block for 256-byte alignment.
+        float           unused[26];                                 //!< An unused block for 256-byte alignment.
 
-        unsigned int    m_numLights             { 0 };          //!< The number of lights currently in the scene.
-        Light           m_lights[MAX_LIGHTS]    { };            //!< Data for each light in the scene.
+        unsigned int    m_numLights             { 0 };              //!< The number of lights currently in the scene.
+        Light           m_lights[MAX_LIGHTS]    { };                //!< Data for each light in the scene.
 
         #pragma endregion
 };
+
+// Undo the alignment.
+#pragma pack (pop)
 
 #endif // MY_VIEW_UNIFORM_DATA_
