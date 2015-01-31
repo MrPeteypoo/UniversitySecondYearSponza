@@ -35,7 +35,7 @@ layout (std140) uniform ubo
 
 
         uniform samplerBuffer   materialBuffer; //!< A texture buffer filled with the required diffuse and specular properties for the material.
-        uniform sampler2D       textureSampler; //!< The desired texture to apply to the particular pixel.
+        uniform sampler2DArray  textureArray;   //!< The desired texture to apply to the particular pixel.
 
 
         in      vec3            worldPosition;  //!< The fragments position vector in world space.
@@ -70,13 +70,12 @@ vec3 cameraPointLight();
 // Il,n = Current light colour.
 // Kd   = Diffuse co-efficient.
 // Ks   = Specular co-efficient.
-const float kd  = 0.5;
-const float ks  = 0.5;
 
-vec3 ambientMap = vec3 (1.0, 1.0, 1.0);
-vec3 diffuse    = vec3 (1.0, 1.0, 1.0) * kd;
-vec3 specular   = vec3 (1.0, 1.0, 1.0) * ks;
-float shininess = 16.0;
+vec3 ambientMap     = vec3 (1.0, 1.0, 1.0);
+vec3 textureColour  = vec3 (1.0, 1.0, 1.0);
+vec3 diffuse        = vec3 (1.0, 1.0, 1.0);
+vec3 specular       = vec3 (1.0, 1.0, 1.0);
+float shininess     = 16.0;
 
 
 void main()
@@ -137,12 +136,27 @@ void obtainMaterialProperties()
     vec4 diffusePart    = texelFetch (materialBuffer, instanceID * 2);
     vec4 specularPart   = texelFetch (materialBuffer, instanceID * 2 + 1);
     
-    // The alpha value of the diffuse is unused.
-    diffuse = vec3 (diffusePart.r, diffusePart.g, diffusePart.b) * kd;
+    // The RGB values of the diffuse part are the diffuse colour.
+    diffuse = vec3 (diffusePart.r, diffusePart.g, diffusePart.b);
+
+    // The alpha of the diffuse part represents the texture to use for the ambient map. -1 == no texture.
+    if (diffusePart.a != -1.0)
+    {
+        textureColour = texture (textureArray, vec3 (texturePoint, diffusePart.a)).rgb;
+        ambientMap = textureColour;
+    }
+
+    else
+    {
+        // Use the diffuse colour for the ambient map and don't apply an extra texture colour.
+        ambientMap = diffuse;
+    }
     
-    // The alpha value of the specular is the shininess value.
-    specular = vec3 (specularPart.r, specularPart.g, specularPart.b) * ks;
-    shininess = specularPart.a; 
+    // The RGB values of the specular part is the specular colour.    
+    specular = vec3 (specularPart.r, specularPart.g, specularPart.b);
+    
+    // The alpha value of the specular part is the shininess value.
+    shininess = specularPart.a;
 }
 
 
@@ -158,7 +172,7 @@ vec3 cameraPointLight()
     
     float lambertian = max (dot (L, N), 0);
 
-    return light * (diffuse * lambertian);
+    return light * (textureColour * diffuse * lambertian);
 }
 
 

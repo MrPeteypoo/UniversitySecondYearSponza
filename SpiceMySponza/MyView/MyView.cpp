@@ -97,14 +97,14 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
         // Retrieve the Sponza data ready for rendering.
         buildMeshData();
 
+        // Allocate the required run-time memory for instancing.
+        allocateExtraBuffers();
+
         // Ensure we have the required materials.
         buildMaterialData();
 
         // Now we can construct the VAO so we're reading for rendering.
         constructVAO();
-
-        // Allocate the required run-time memory for instancing.
-        allocateExtraBuffers();
     }
 }
 
@@ -206,6 +206,23 @@ void MyView::buildMeshData()
 }
 
 
+void MyView::allocateExtraBuffers()
+{
+    // We'll need to keep track of the highest number of instances in the scene.
+    m_poolSize = highestInstanceCount();
+
+    // The UBO will contain every uniform variable apart from textures.
+    util::allocateBuffer (m_uniformUBO, sizeof (UniformData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
+        
+    // The material pool stores the diffuse and specular properties of each instance for the fragment shader.
+    util::allocateBuffer (m_materialPool, sizeof (Material) * m_poolSize, GL_TEXTURE_BUFFER, GL_DYNAMIC_DRAW);
+
+    // The matrices pool stores the model and PVM transformation matrices of each instance, therefore we need two.
+    util::allocateBuffer (m_matricesPool, sizeof (glm::mat4) * 2 * m_poolSize, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
+    
+}
+
+
 void MyView::buildMaterialData()
 {
     // Obtain every material in the scene.
@@ -224,7 +241,7 @@ void MyView::buildMaterialData()
     // Just prepare the material pool.
     else
     {
-        prepareTextureData (0, 0, 0);
+        prepareTextureData (1, 1, 1);
     }
 
     // Load the images onto the GPU.
@@ -235,16 +252,20 @@ void MyView::buildMaterialData()
     {
         // Check which texture ID to use. If it can't be determined then -1 indicates none.
         const auto& texture             = material.getAmbientMap();
-        int         textureID           = -1;
+        float       textureID           = -1.f;
 
-        // Determine the textureID.
-        for (size_t i = 0; i < images.size(); ++i)
+        if (!texture.empty())
         {
-            if (texture.compare (images[i].first))
+            // Determine the textureID.
+            for (size_t i = 0; i < images.size(); ++i)
             {
-                // Cast back to an int otherwise we may have errors.
-                textureID = (int) i;
-                break;
+                // 0 means equality.
+                if (texture == images[i].first)
+                {
+                    // Cast back to an int otherwise we may have errors.
+                    textureID = (float) i;
+                    break;
+                }
             }
         }
 
@@ -304,35 +325,15 @@ void MyView::constructVAO()
 }
 
 
-void MyView::allocateExtraBuffers()
-{
-    // Pre-condition: We have a valid scene assigned.
-    if (m_scene)
-    {
-        // We'll need to keep track of the highest number of instances in the scene.
-        m_poolSize = highestInstanceCount();
-
-        // The UBO will contain every uniform variable apart from textures.
-        util::allocateBuffer (m_uniformUBO, sizeof (UniformData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
-        
-        // The material pool stores the diffuse and specular properties of each instance for the fragment shader.
-        util::allocateBuffer (m_materialPool, sizeof (Material) * m_poolSize, GL_TEXTURE_BUFFER, GL_DYNAMIC_DRAW);
-
-        // The matrices pool stores the model and PVM transformation matrices of each instance, therefore we need two.
-        util::allocateBuffer (m_matricesPool, sizeof (glm::mat4) * 2 * m_poolSize, GL_ARRAY_BUFFER, GL_DYNAMIC_DRAW);
-    }
-}
-
-
 void MyView::prepareTextureData (const GLsizei textureWidth, const GLsizei textureHeight, const GLsizei textureCount)
 {
     // Active the material texture buffer and point it to the material pool VBO.
     glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
     glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materialPool);
 
-    // Enable the 2D texture array and prepare its storage.
+    // Enable the 2D texture array and prepare its storage. Use 8 mipmap levels.
     glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
-    glTexStorage3D (GL_TEXTURE_2D_ARRAY, 0, GL_RGBA, textureWidth, textureHeight, textureCount);
+    glTexStorage3D (GL_TEXTURE_2D_ARRAY, 8, GL_RGBA, textureWidth, textureHeight, textureCount);
 
     // Enable standard filters.
     glTexParameteri (GL_TEXTURE_2D_ARRAY,   GL_TEXTURE_MAG_FILTER,  GL_LINEAR);
@@ -348,7 +349,7 @@ void MyView::prepareTextureData (const GLsizei textureWidth, const GLsizei textu
 
 void MyView::loadTexturesIntoArray (const std::vector<std::pair<std::string, tygra::Image>>& images)
 {
-    glBindBuffer (GL_TEXTURE_2D_ARRAY, m_textureArray); 
+    glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray); 
 
     for (size_t i = 0; i < images.size(); ++i)
     {
@@ -361,10 +362,13 @@ void MyView::loadTexturesIntoArray (const std::vector<std::pair<std::string, tyg
             // Enable each different pixel format.
             GLenum pixel_formats[] = { 0, GL_RED, GL_RG, GL_RGB, GL_RGBA };
 
-            glTexSubImage3D (   GL_TEXTURE_2D_ARRAY, 0, 0, 0, i,
+            glTexSubImage3D (   GL_TEXTURE_2D_ARRAY, 0, 
+                
+                                // Offsets.
+                                0, 0, i,
                             
                                 // Dimensions and border.
-                                image.width(), image.height(), 0,   
+                                image.width(), image.height(), 1,   
                       
                                 // Format and type.
                                 pixel_formats[image.componentsPerPixel()], image.bytesPerComponent() == 1 ? GL_UNSIGNED_BYTE : GL_UNSIGNED_SHORT,
@@ -494,8 +498,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     const auto  projection      = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
                 view            = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
     
-    // Set the uniform variables. I'd rather the function done everything but then I'd have to pass through glm::mat4 objects, they aren't easy
-    // to forward declare!
+    // I'd rather setUniforms() done everything but then I'd have to pass through glm::mat4 objects, they aren't easy to forward declare!
     UniformData data { };
     data.setProjectionMatrix (projection);
     data.setViewMatrix (view);
@@ -511,8 +514,6 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     // Specify the texture buffers to use.
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_BUFFER, m_materialTBO);
-
-    glActiveTexture (GL_TEXTURE1);
     glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
     
     // Cache a vector full of model and PVM matrices for the rendering.
@@ -580,8 +581,8 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     glBindVertexArray (0);
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindBuffer (GL_TEXTURE_BUFFER, 0);
-    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
     glBindTexture (GL_TEXTURE_BUFFER, 0);
+    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
 }
 
 
@@ -610,6 +611,7 @@ void MyView::setUniforms (UniformData& data)
     glUniformBlockBinding (m_program, index, 0);
     glBindBufferBase (GL_UNIFORM_BUFFER, 0, m_uniformUBO);
 
+    // Unbind the buffer.
     glBindBuffer (GL_UNIFORM_BUFFER, 0);
 }
 
