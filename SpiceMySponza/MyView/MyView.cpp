@@ -494,9 +494,9 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     glUseProgram (m_program);
     
     // Define matrices.
-    const auto& camera          = m_scene->getCamera();
-    const auto  projection      = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
-                view            = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
+    const auto& camera      = m_scene->getCamera();
+    const auto  projection  = glm::perspective (camera.getVerticalFieldOfViewInDegrees(), m_aspectRatio, camera.getNearPlaneDistance(), camera.getFarPlaneDistance()),
+                view        = glm::lookAt (camera.getPosition(), camera.getPosition() + camera.getDirection(), m_scene->getUpDirection());
     
     // Set the uniforms.
     setUniforms (&projection, &view);
@@ -548,24 +548,13 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
                 matrices[offset]        = model;
                 matrices[offset + 1]    = projection * view * model;
 
-                // Now deal with the materials. Assuming no errors occur a try-catch block should have almost no overhead.
+                // Now deal with the materials.
                 const auto materialID   = instance.getMaterialId();
-                try
-                {
-                    // Use .at() to throw an exception instead of creating an access violation error.
-                    materials[i] = *m_materials.at (materialID);
-                }
-
-                catch (...)
-                {
-                    // Create a blank material and use that.
-                    m_materials[materialID] = new Material();
-                    materials[i]            = *m_materials.at (materialID);
-                }
+                materials[i]            = *m_materials.at (materialID);
             }
 
             // Only overwrite the required data to speed up the buffering process. Avoid glMapBuffer because it's ridiculously slow in this case.
-            glBufferSubData (GL_ARRAY_BUFFER, 0,    sizeof (glm::mat4) * 2 * size,  matrices.data());
+            glBufferSubData (GL_ARRAY_BUFFER,   0,  sizeof (glm::mat4) * 2 * size,  matrices.data());
             glBufferSubData (GL_TEXTURE_BUFFER, 0,  sizeof (Material) * size,       materials.data());
             
             // Cache access to the current mesh.
@@ -576,12 +565,11 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
         }
     }
 
-    // Unbind all buffers.
+    // Unbind all buffers. Don't unbind the TEXTURE_2D_ARRAY because the Nvidia drivers freak out and recompile the fragment shader after the first pass of the draw loop.
     glBindVertexArray (0);
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindBuffer (GL_TEXTURE_BUFFER, 0);
     glBindTexture (GL_TEXTURE_BUFFER, 0);
-    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
 }
 
 
