@@ -42,7 +42,7 @@ enum class LightType : int
 struct Light final
 {
     glm::vec3   position        { 1.f };    //!< The world position of the light in the scene.
-    LightType   type            { };        //!< Determines how the light information is visually applied in the scene.
+    float       type            { };        //!< Determines how the light information is visually applied in the scene.
 
     glm::vec3   direction       { 1.f };    //!< The direction of the light.
     float       coneAngle       { 0.f };    //!< The cone angle for spot lights.
@@ -62,6 +62,9 @@ struct Light final
 
     Light (Light&& move);
     Light& operator= (Light&& move);
+
+    /// <summary> Set the light type using the type-safe enumeration. </summary>
+    void setType (const LightType lightType)    { type = static_cast<float> (lightType); }
 };
 
 
@@ -151,14 +154,16 @@ class MyView::UniformData final
         glm::vec4   m_ambience              { 1.f };    //!< The ambient colour of the scene. The alpha value is padding required by the shader.
 
         float       unused[24];                         //!< An unused array for 256-byte alignment to the binding block.
-
-        Light       m_lights[MAX_LIGHTS]    { };        //!< Data for each light in the scene.
+        
         int         m_numLights             { 0 };      //!< The number of lights currently in the scene.
-
         float       alignment[3];                       //!< Align UniformData to 128-bits.
+        
+        Light       m_lights[MAX_LIGHTS]    { };        //!< Data for each light in the scene.
+
 
         #pragma endregion
 };
+
 
 // Undo the alignment.
 #pragma pack (pop)

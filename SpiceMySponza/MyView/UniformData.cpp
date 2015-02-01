@@ -41,7 +41,7 @@ Light& Light::operator= (Light&& move)
         emitWireframe   = std::move (move.emitWireframe);
 
         // Reset standard data type.
-        move.type           = LightType::Point;
+        move.setType (LightType::Point);
         move.coneAngle      = 0.f;
         move.concentration  = 0.f;
         move.aConstant      = 0.f;
@@ -76,12 +76,13 @@ MyView::UniformData& MyView::UniformData::operator= (UniformData&& move)
         m_cameraPosition    = std::move (move.m_cameraPosition);
         m_ambience          = std::move (move.m_ambience);
         
+        m_numLights         = std::move (move.m_numLights);
+
         for (unsigned int i = 0; i < MAX_LIGHTS; ++i)
         {
             m_lights[i] = std::move (move.m_lights[i]);
         }
 
-        m_numLights         = std::move (move.m_numLights);
 
         // Reset primitive data types.
         m_numLights         = 0;
@@ -110,8 +111,9 @@ void MyView::UniformData::setLight (const int index, const SceneModel::Light& li
         auto& shaderLight = m_lights[index];
 
         // Move the data across.
+        shaderLight.setType (type);
         shaderLight.position    = light.getPosition();
-        shaderLight.type        = type;
+
 
         shaderLight.direction   = light.getDirection();
         shaderLight.coneAngle   = light.getConeAngleDegrees();

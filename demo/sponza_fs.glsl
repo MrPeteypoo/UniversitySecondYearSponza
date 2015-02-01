@@ -6,20 +6,19 @@
 
 
 /// <summary>
-/// A structure containing information regarding to a light source in the scene.
+/// A structure containing information regarding to a light source in the scene. Because of the std140 layout rules of being 128-bit aligned
+/// we need to be creative and combine vec3's with an additional attribute to save memory.
 /// </summary>
 struct Light
 {
-    vec3    position;       //!< The world position of the light in the scene.
-    vec3    direction;      //!< The direction of the light.
-    vec3    colour;         //!< The un-attenuated colour of the light.
+    vec4    positionType;           //!< The world position of the light in the scene. Alpha is the type of light; 0 means point light, 1 means spot light and 2 means directional light.
+    vec4    directionAngle;         //!< The direction of the light. Alpha is the angle of the light in degrees.
+    vec4    colourConcentration;    //!< The un-attenuated colour of the light. Alpha is the concentration of the light beam.
 
-    float   concentration;  //!< How concentrated the beam of the spot light is.
-    float   coneAngle;      //!< The angle of the light cone in degrees.
-
-    float   cConstant;      //!< The constant co-efficient for the attenutation formula.
-    float   cLinear;        //!< The linear co-efficient for the attenuation formula.
-    float   cQuadratic;     //!< The quadratic co-efficient for the attenuation formula.
+    float   aConstant;              //!< The constant co-efficient for the attenutation formula.
+    float   aLinear;                //!< The linear co-efficient for the attenuation formula.
+    float   aQuadratic;             //!< The quadratic co-efficient for the attenuation formula.
+    bool    emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces.
 };
 
 
@@ -37,7 +36,7 @@ layout (std140) uniform scene
 /// <summary> The uniform buffer containing lighting data. </summary>
 layout (std140) uniform lighting
 {
-    int     numLights;           //!< The number of lights in use.
+    int     numLights;			//!< The number of lights in currently in use.
     Light   lights[MAX_LIGHTS]; //!< The lighting data of each light in the scene.
 };
 
@@ -59,22 +58,37 @@ flat    in      int             instanceID;     //!< Used in fetching instance-s
 /// <summary> Updates the ambient, diffuse and specular colours from the materialTBO for this fragment. </summary>
 void obtainMaterialProperties();
 
-/// <summary> Calculates the lighting from a given spotlight. </summary>
+/// <summary> Calculates the lighting from a given light. </summary>
 /// <param name="light"> The light to use for the calculations. </param>
 /// <param name="Q"> The world position of the surface. </param>
-/// <param name="N"> The world normal of the surface. </param>
-/// <param name="V"> The direction of the viewer to the surface. </param>
-/// <param name="attenuate"> Whether any attenuation should be performed. </param>
-vec3 spotLight (const Light light, const vec3 Q, const vec3 N, const vec3 V, const bool attenuate);
+/// <param name="N"> The world normal direction of the surface. </param>
+/// <param name="V"> The direction of the surface to the viewer. </param>
+/// <returns> Attenuated lighting calculated by the material and light properties. </returns>
+vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V);
 
+/// <summary> Calculates the attenuation value of a point light based on the given distance. </summary>
+/// <param name="light"> The light to obtain attenuation information from. </param>
+/// <param name="distance"> The distance of the fragment from the light. </param>
+/// <returns> An attenuation value ranging from 0 to 1. </returns>
+float pointLightAttenuation (const Light light, const float distance);
+
+/// <summary> Calculates the luminance attenuation value of a spot light based on the given distance. </summary>
+/// <param name="light"> The light to obtain attenuation information from. </param>
+/// <param name="L"> The surface-to-light unit direction vector required for the attenuation formula. </param>
+/// <param name="distance"> The distance of the fragment from the light. </param>
+/// <returns> An attenuation value ranging from 0 to 1. </returns>
 float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float distance);
-float spotLightConeAttenuation (const Light light, const vec3 L);
 
+/// <summary> Calculates the cone attenuation value of a spot light using angle information of a given light. </summary>
+/// <param name="light"> The light to obtain directional and angular information from. </param>
+/// <param name="L"> The surface-to-light unit direction vector required for the attenuation formula. </param>
+/// <returns> An attenuation value ranging from 0 to 1. </returns>
+float spotLightConeAttenuation (const Light light, const vec3 L);
 
 /// <summary> Calculates the diffuse and specular lighting to be applied based on the given colour. </summary>
 /// <param name="L"> The direction pointing from the surface to the light. </param>
 /// <param name="N"> The normal pointing away from the surface. </param>
-/// <param name="V"> The normal pointing from the surface to the viewer. </param>
+/// <param name="V"> The direction pointing from the surface to the viewer. </param>
 /// <param name="colour"> The colour to modify the lighting with. </param>
 /// <param name="lambertian"> The luminance value to apply to the diffuse colour. </param>
 /// <returns> The calculated diffuse and specular lighting with the given colour applied. </returns>
@@ -83,9 +97,7 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
 vec3 wireframe();
 
 
-//float spotLightAttenuation (const Light light, const vec3 L, const float distance, const unsigned int concentration);
-
-// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Li.N) + Ks (Li.Rv))
+// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Ln.N) + Ks (Ln.Rv))
 // Ia   = Ambient scene light.
 // Ka   = Ambient map.
 // Il,n = Current light colour.
@@ -110,12 +122,12 @@ void main()
     vec3 V = normalize (cameraPosition - Q);
 
     // Shade each light.
-    vec3 lighting = vec3 (0.0, 0.0, 0.0);
+    vec3 lighting = vec3 (0.0);
 
     // Run through each spotlight, accumlating the diffuse and specular from the fragment.
     for (int i = 0; i < numLights; ++i)
     {
-        lighting += spotLight (lights[i], Q, N, V, true);
+        lighting += processLight (lights[i], Q, N, V);
     }
     
     // Put the equation together and we get....
@@ -134,7 +146,7 @@ void obtainMaterialProperties()
     vec4 specularPart   = texelFetch (materialBuffer, instanceID * 2 + 1);
     
     // The RGB values of the diffuse part are the diffuse colour.
-    diffuse = vec3 (diffusePart.r, diffusePart.g, diffusePart.b);
+    diffuse = diffusePart.rgb;
 
     // The alpha of the diffuse part represents the texture to use for the ambient map. -1 == no texture.
     if (diffusePart.a >= 0.0)
@@ -146,44 +158,62 @@ void obtainMaterialProperties()
     else
     {
         // Use the diffuse colour for the ambient map and don't apply an extra texture colour.
-        textureColour = vec3 (1.0, 1.0, 1.0);
         ambientMap = diffuse;
     }
     
     // The RGB values of the specular part is the specular colour.    
-    specular = vec3 (specularPart.r, specularPart.g, specularPart.b);
+    specular = specularPart.rgb;
     
     // The alpha value of the specular part is the shininess value.
     shininess = specularPart.a;
 }
 
 
-vec3 spotLight (const Light light, const vec3 Q, const vec3 N, const vec3 V, const bool attenuate)
+vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
 {
     // Prepare our accumulator.
-    vec3 lighting   = vec3 (0.0, 0.0, 0.0);
+    vec3 lighting   = vec3 (0.0);
 
     // Calculate L and the lambertian value to check if we need to actually add anything.
-    float distance  = length (light.position - Q);
-    vec3 L          = (light.position - Q) / distance;
+    float distance  = length (light.positionType.xyz - Q);
+    vec3 L          = (light.positionType.xyz - Q) / distance;
 
-    // If the lambertian isn't more than zero we don't need to add any lighting.
+    // If the lambertian is zero we don't need to add any lighting.
     float lambertian = max (dot (L, N), 0);
 
     if (lambertian > 0)
     {
-        // Start by attenuating the light if necessary.
-        vec3 attenuatedColour = vec3 (1.0, 1.0, 1.0);
-        //attenuatedColour = light.colour;
+        // We need to calculate the attenuation now.
+        float attenuation = 1.0;
 
-        if (attenuate)
+        // For the light type 0 means point, 1 means spot and 2 means directional.
+        switch (int (light.positionType.w))
         {
-            //attenuatedColour *= spotLightLuminanceAttenuation (light, L, distance);
-            //attenuatedColour *= spotLightConeAttenuation (light, L);
+            // Point light.
+            case 0:
+                attenuation *= pointLightAttenuation (light, distance);
+                break;
+
+            // Spot light.
+            case 1:
+                attenuation *= spotLightLuminanceAttenuation (light, L, distance);
+                attenuation *= spotLightConeAttenuation (light, L);
+                break;
+
+            // Directional lights don't have attenuation.
+            default:
+                break;
         }
 
         // Check if any light still exists.
-        lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
+        if (attenuation > 0)
+        {
+            // Calculate the final colour of the light. 
+            vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
+        
+            // Increase the lighting to apply to the current fragment.
+            lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
+        }
     }
 
     // Return the accumulated lighting.
@@ -191,14 +221,23 @@ vec3 spotLight (const Light light, const vec3 Q, const vec3 N, const vec3 V, con
 }
 
 
+float pointLightAttenuation (const Light light, const float distance)
+{
+    // We need to construct Ci *= 1 / (Kc + Kl * d + Kq * d * d).
+    float attenuation = 1.0 / (light.aConstant + light.aLinear * distance + light.aQuadratic * distance * distance);
+
+    return attenuation;    
+}
+
+
 float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float distance)
 {    
-    // We need to construct C = (pow (max {-R.L, 0}), p) / (Kc + kl * d + Kq * d * d).
-    float lighting      = max (dot (-light.direction, L), 0);
+    // We need to construct Ci *= (pow (max {-R.L, 0}), p) / (Kc + kl * d + Kq * d * d).
+    float lighting      = max (dot (-light.directionAngle.xyz, L), 0);
 
-    float numerator     = pow (lighting, light.concentration);
+    float numerator     = pow (lighting, light.colourConcentration.a);
 
-    float denominator   = light.cConstant + light.cLinear * distance + light.cQuadratic * distance * distance;
+    float denominator   = light.aConstant + light.aLinear * distance + light.aQuadratic * distance * distance;
     
     // Return the final calculation.
     return numerator / denominator;
@@ -208,9 +247,11 @@ float spotLightLuminanceAttenuation (const Light light, const vec3 L, const floa
 float spotLightConeAttenuation (const Light light, const vec3 L)
 {
     // Cone attenuation is: fs := (S.D) > cos (c). S = -L, D = light direction.
-    vec3  surface       = -L;
-    float coneFactor    = max (dot (surface, light.direction), 0);
-    float halfAngle     = cos (light.coneAngle / 2);
+    const vec3 surface  = -L;
+
+    float coneFactor    = max (dot (surface, light.directionAngle.xyz), 0);
+
+    float halfAngle     = cos (light.directionAngle.w / 2);
 
     // Only return the cone attenuation factor if it is more than the cosine of the half angle.
     return coneFactor > halfAngle ? coneFactor : 0;
@@ -257,10 +298,7 @@ vec3 wireframe()
 /// <returns> A single colour based on the primitive ID of the current triangle. </returns>
 vec3 primitiveColour();
 
-/// <summary> Calculates the attenuation value of a point light based on the given distance and range. </summary>
-/// <param name="distance"> The distance of the fragment from the light. </param>
-/// <param name="range"> The range of the point light. Light shall not extend beyond this value. </param>
-float pointLightAttenuation (const float distance, const float range, bool useSmoothstep);
+
 
 
 vec3 primitiveColour()
@@ -274,24 +312,4 @@ vec3 primitiveColour()
         case 2:
             return vec3 (0.0, 0.0, 1.0);
     }
-}
-
-
-float pointLightAttenuation (const float distance, const float range, bool useSmoothstep)
-{
-    // Use smoothstep if desired.
-    if (useSmoothstep)
-    {
-        return smoothstep (1.0, 0.0, distance / range);
-    }
-
-    // Start by calculating the attentuation constants.
-    const float kc = 1.0;
-    const float kl = 0.005;
-    float kq = 1.0 / (range * range * 0.01);
-    
-    // Calculate the final attenuation value.
-    float attenuation = 1.0 / (kc + kl * distance + kq * distance * distance);
-
-    return attenuation;    
 }*/
