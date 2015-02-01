@@ -47,7 +47,7 @@ Light& Light::operator= (Light&& move)
         move.aConstant      = 0.f;
         move.aLinear        = 0.f;
         move.aQuadratic     = 0.f;
-        move.emitWireframe  = false;
+        move.emitWireframe  = 0;
     }
 
     return *this;
@@ -83,7 +83,6 @@ MyView::UniformData& MyView::UniformData::operator= (UniformData&& move)
             m_lights[i] = std::move (move.m_lights[i]);
         }
 
-
         // Reset primitive data types.
         m_numLights         = 0;
     }
@@ -113,7 +112,6 @@ void MyView::UniformData::setLight (const int index, const SceneModel::Light& li
         // Move the data across.
         shaderLight.setType (type);
         shaderLight.position    = light.getPosition();
-
 
         shaderLight.direction   = light.getDirection();
         shaderLight.coneAngle   = light.getConeAngleDegrees();

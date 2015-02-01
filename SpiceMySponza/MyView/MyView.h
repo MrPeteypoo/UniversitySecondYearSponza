@@ -20,6 +20,7 @@
 
 // Forward declarations.
 namespace tygra { class Image; }
+struct Light;
 struct Vertex;
 
 
@@ -43,9 +44,13 @@ class MyView final : public tygra::WindowViewDelegate
 
         #pragma endregion
 
-        #pragma region Getters and setters
+        #pragma region Public interface
 
+        /// <summary> Sets the SceneModel::Context to use for rendering. </summary>
         void setScene (std::shared_ptr<const SceneModel::Context> scene);
+
+        /// <summary> Enables a wireframe view near the camera. </summary>
+        void toggleWireframeMode()  { m_wireframeMode = !m_wireframeMode; }
 
         #pragma endregion
 
@@ -121,6 +126,10 @@ class MyView final : public tygra::WindowViewDelegate
         /// <param name="projectionMatrix"> A pointer to a glm::mat4 view matrix for the scene. </param>
         void setUniforms (const void* const projectionMatrix, const void* const viewMatrix);
 
+        /// <summary> Creates a wireframe light based on the cameras position. </summary>
+        /// <returns> A light ready for adding to the UBO. </returns>
+        Light createWireframeLight() const;
+
         #pragma endregion
 
         #pragma region Implementation data
@@ -144,6 +153,8 @@ class MyView final : public tygra::WindowViewDelegate
         std::shared_ptr<const SceneModel::Context>              m_scene             { nullptr };    //!< The sponza scene containing instance and camera information.
         std::vector<std::pair<SceneModel::MeshId, Mesh*>>       m_meshes            { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
         std::unordered_map<SceneModel::MaterialId, Material*>   m_materials         { };            //!< A map containing each material used for rendering.
+
+        bool                                                    m_wireframeMode     { false };      //!< Causes the camera to show a wireframe around meshes nearby.
 
         #pragma endregion
 };

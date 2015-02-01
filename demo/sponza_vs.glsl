@@ -55,7 +55,7 @@ vec3 barycentric()
 {
     // Unfortunately the labs GPUs require the co-ordinates be weighted in a special way for the effect to be correct.
     const float weight = 100;
-    switch (gl_VertexID % 3)
+    switch (gl_VertexID % 4)
     {
         case 0:
             return vec3 (weight, 1, 0);

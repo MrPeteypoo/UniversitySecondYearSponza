@@ -587,7 +587,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 
 void MyView::setUniforms (const void* const projectionMatrix, const void* const viewMatrix)
 {
-    // Fix the stupid lab computers not liking how I use textures.
+    // Fix the stupid lab computers not liking how I don't specify he texture unit and how I like using both on texture unit 0.
     const auto materialBuffer   = glGetUniformLocation (m_program, "materialBuffer");
     const auto textureArray     = glGetUniformLocation (m_program, "textureArray");
     
@@ -609,14 +609,22 @@ void MyView::setUniforms (const void* const projectionMatrix, const void* const 
     data.setAmbientColour (m_scene->getAmbientLightIntensity());
 
     // Obtain the lights in the scene.
-    const auto& lights = m_scene->getAllLights();
-    data.setLightCount (lights.size());
+    const auto& lights  = m_scene->getAllLights();
+    size_t lightCount   = lights.size();
 
     // Add each light to the data.
-    for (unsigned int i = 0; i < lights.size(); ++i)
+    for (size_t i = 0; i < lights.size(); ++i)
     {
         data.setLight (i, lights[i], LightType::Spot);   
     }
+
+    // Enable the wireframe light if necessary.
+    if (m_wireframeMode)
+    {
+        data.setLight (lightCount++, createWireframeLight());
+    }
+
+    data.setLightCount (lightCount);
 
     // Overwrite the current uniform data.
     glBindBuffer (GL_UNIFORM_BUFFER, m_uniformUBO);
@@ -652,6 +660,29 @@ void MyView::setUniforms (const void* const projectionMatrix, const void* const 
 
     // Unbind the buffer.
     glBindBuffer (GL_UNIFORM_BUFFER, 0);
+}
+
+
+Light MyView::createWireframeLight() const
+{
+    // Create the light.
+    Light wireframe { };
+
+    // Fill it with the correct information.
+    const auto& camera      = m_scene->getCamera();
+    wireframe.position      = camera.getPosition();
+    wireframe.direction     = camera.getDirection();
+
+    // Set suitable attenuation values.
+    wireframe.aConstant     = 1.0f;
+    wireframe.aLinear       = 0.3f;
+    wireframe.aQuadratic    = 0.0f;
+
+    // Enable the wireframe and we're done!
+    wireframe.emitWireframe = 1;
+    wireframe.setType (LightType::Point);
+
+    return wireframe;
 }
 
 #pragma endregion

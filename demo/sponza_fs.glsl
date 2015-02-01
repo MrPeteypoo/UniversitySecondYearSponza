@@ -18,7 +18,7 @@ struct Light
     float   aConstant;              //!< The constant co-efficient for the attenutation formula.
     float   aLinear;                //!< The linear co-efficient for the attenuation formula.
     float   aQuadratic;             //!< The quadratic co-efficient for the attenuation formula.
-    bool    emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces.
+    int     emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces.
 };
 
 
@@ -208,11 +208,25 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
         // Check if any light still exists.
         if (attenuation > 0)
         {
-            // Calculate the final colour of the light. 
-            vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
-        
-            // Increase the lighting to apply to the current fragment.
-            lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
+            // Booleans don't seem to translate to the UBO accurately.
+            if (light.emitWireframe != 1)
+            {
+                // Calculate the final colour of the light. 
+                vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
+
+                // Increase the lighting to apply to the current fragment.
+                lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
+            }
+
+            // Enable the wireframe view!
+            else
+            {
+                // The materials should look emissive by using a white, unattenuated light.
+                vec3 emissiveLighting = calculateLighting (L, N, V, vec3 (1), lambertian);
+                
+                // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation.
+                lighting += (emissiveLighting + wireframe()) * smoothstep (0.0, 1.0, attenuation);
+            }
         }
     }
 
@@ -246,23 +260,26 @@ float spotLightLuminanceAttenuation (const Light light, const vec3 L, const floa
 
 float spotLightConeAttenuation (const Light light, const vec3 L)
 {
-    // Cone attenuation is: fs := (S.D) > cos (c). S = -L, D = light direction.
+    // Cone attenuation is: fs := (S.D) > cos (c). S = light to surface direction, D = light direction.
     const vec3 surface  = -L;
-
     float coneFactor    = max (dot (surface, light.directionAngle.xyz), 0);
 
+    // Determine the cosine of the half angle.
     float halfAngle     = cos (light.directionAngle.w / 2);
 
-    // Only return the cone attenuation factor if it is more than the cosine of the half angle.
-    return coneFactor > halfAngle ? coneFactor : 0;
+    // Attenuate using smoothstep.
+    float attenuation   = smoothstep (0.0, 1.0, (coneFactor - halfAngle) / halfAngle);
+    
+    // Return the calculated attenuation factor.
+    return attenuation;
 }
 
 
 vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 colour, const float lambertian)
 { 
     // Create the variables we'll be modifying.
-    vec3 diffuseLighting    = vec3 (0.0, 0.0, 0.0);
-    vec3 specularLighting   = vec3 (0.0, 0.0, 0.0);
+    vec3 diffuseLighting    = vec3 (0.0);
+    vec3 specularLighting   = vec3 (0.0);
 
     if (lambertian > 0)
     {
@@ -282,34 +299,18 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
 
     return colour * (diffuseLighting + specularLighting);
 }
-/*
+
 vec3 wireframe()
 {
+    // This code is taken from a very useful blog post. Credit to Florian Boesch for such simple code.
+    // Boesch, F. (2012) Easy wireframe display with barycentric coordinates. 
+    // Available at: http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/ (Accessed: 01/02/2015).
+    
     // Determine how much of an edge exists at the interpolated barycentric point.
     vec3 d              = fwidth (baryPoint);
     vec3 a3             = smoothstep (vec3 (0.0), d * 1.5, baryPoint);
     float edgeFactor    = min (min (a3.x, a3.y), a3.z);
 
     // Return the desired wireframe addition.
-    return mix (vec3 (0.1), vec3 (0.0), edgeFactor);
+    return mix (vec3 (3.0), vec3 (0.0), edgeFactor);
 }
-
-/// <summary> Can be used to colour the scene using red, green or and blue triangles. </summary>
-/// <returns> A single colour based on the primitive ID of the current triangle. </returns>
-vec3 primitiveColour();
-
-
-
-
-vec3 primitiveColour()
-{
-    switch (gl_PrimitiveID % 3)
-    {
-        case 0:
-            return vec3 (1.0, 0.0, 0.0);
-        case 1:
-            return vec3 (0.0, 1.0, 0.0);
-        case 2:
-            return vec3 (0.0, 0.0, 1.0);
-    }
-}*/

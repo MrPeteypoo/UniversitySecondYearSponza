@@ -42,18 +42,18 @@ enum class LightType : int
 struct Light final
 {
     glm::vec3   position        { 1.f };    //!< The world position of the light in the scene.
-    float       type            { };        //!< Determines how the light information is visually applied in the scene.
+    float       type            { 0.f };    //!< Determines how the light information is visually applied in the scene.
 
     glm::vec3   direction       { 1.f };    //!< The direction of the light.
-    float       coneAngle       { 0.f };    //!< The cone angle for spot lights.
+    float       coneAngle       { 90.f };   //!< The cone angle for spot lights.
 
     glm::vec3   colour          { 1.f };    //!< The un-attenuated colour of the light.
-    float       concentration   { 1.f };    //!< How concentrated beam of a spot light is.
+    float       concentration   { 8.f };    //!< How concentrated beam of a spot light is.
 
     float       aConstant       { 1.f };    //!< The constant co-efficient for the attenutation formula.
     float       aLinear         { 0.f };    //!< The linear co-efficient for the attenutation formula.
     float       aQuadratic      { 1.f };    //!< The quadratic co-efficient for the attenuation formula.
-    bool        emitWireframe   { false };  //!< Indicates whether the light should emit a wireframe onto surfaces.
+    int         emitWireframe   { 0 };      //!< Indicates whether the light should emit a wireframe onto surfaces.
 
     Light()                                 = default;
     Light (const Light& copy)               = default;

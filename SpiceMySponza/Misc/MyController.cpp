@@ -102,6 +102,13 @@ windowControlKeyboardChanged(std::shared_ptr<tygra::Window> window,
 	case 'S':
 		camera_move_speed_[3] = down ? 1.f : 0.f;
 		break;
+    case tygra::kWindowKeySpace:
+        if (down)
+        {
+            view_->toggleWireframeMode();
+        }
+
+        break;
 	}
 
 	updateCameraTranslation();
