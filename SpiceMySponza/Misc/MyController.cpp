@@ -195,6 +195,10 @@ windowControlGamepadButtonChanged(std::shared_ptr<tygra::Window> window,
                                   int button_index,
                                   bool down)
 {
+    if (button_index == 0 && down)
+    {
+        view_->toggleWireframeMode();
+    }
 }
 
 void MyController::

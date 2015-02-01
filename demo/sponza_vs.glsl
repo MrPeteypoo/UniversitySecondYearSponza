@@ -53,7 +53,18 @@ void main()
 
 vec3 barycentric()
 {
+    /// For the implementation of the wireframe toggle I chose to make it completely shader based using barycentric co-ordinates. Using the 
+    /// ID assigned to each vertex by OpenGL I can pass a barycentric co-ordinate to the fragment shader which represents each point on the triangle. 
+    /// This is interpolated by the GPU and can be used to determine if the current fragment represents part of the wireframe. We can then decide
+    /// whether to colour the fragment using Phong or colour it white to visually represent the wireframe.
+    /// 
+    /// I chose this route for multiple reasons; firstly I use the vertex ID because it has the same effect as assigning each vertex an extra
+    /// attribute for little run-time cost. This reduces memory consumption and means the GPU can process more vertices due to more bandwidth being 
+    /// available. Secondly, it is very easy to implement and although it can miss some lines, the end result is a very convincing wireframe around objects.
+
+    
     // Unfortunately the labs GPUs require the co-ordinates be weighted in a special way for the effect to be correct.
+    // My AMD card at home works fine with (1, 0, 0), (0, 1, 0) and (0, 0, 1).
     const float weight = 100;
     switch (gl_VertexID % 3)
     {

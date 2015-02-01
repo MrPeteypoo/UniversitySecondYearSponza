@@ -97,12 +97,14 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
 vec3 wireframe();
 
 
-// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Ln.N) + Ks (Ln.Rv))
+// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Ln.N) + Ks (Ln.Rv)p)
 // Ia   = Ambient scene light.
 // Ka   = Ambient map.
 // Il,n = Current light colour.
-// Kd   = Diffuse co-efficient.
-// Ks   = Specular co-efficient.
+// Kd   = Diffuse colour.
+// Ks   = Specular colour.
+// Ln.N = Dot product of direction to current light and normal.
+// Ln.Rv
 
 vec3 ambientMap     = vec3 (1.0, 1.0, 1.0);
 vec3 textureColour  = vec3 (1.0, 1.0, 1.0);
@@ -221,10 +223,11 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
             // Enable the wireframe view!
             else
             {
-                // The materials should look emissive by using a white, unattenuated light.
+                // The materials should look emissive by using a bright white, unattenuated light.
                 vec3 emissiveLighting = calculateLighting (L, N, V, vec3 (1), lambertian);
                 
-                // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation.
+                // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
+                // really smooth transition between the standard Phong shading and the wireframe rendering!
                 lighting += (emissiveLighting + wireframe()) * smoothstep (0.0, 1.0, attenuation);
             }
         }
@@ -292,7 +295,7 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
             // We need to reflect the direction from the surface to the light for the specular calculations.
             vec3 R = reflect (L, N);
             
-            // Finally use Kspecular = pow (V.R, shininess) for the specular formula.
+            // Finally use Kspecular = pow (V.-R, shininess) for the specular formula.
             specularLighting = specular * pow (max (dot (V, -R), 0), shininess);
         }
     }
