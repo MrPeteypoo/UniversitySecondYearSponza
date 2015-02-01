@@ -12,6 +12,50 @@
 
 
 
+#pragma region Light structure
+
+Light::Light (Light&& move)
+{
+    *this = std::move (move);
+}
+
+
+Light& Light::operator= (Light&& move)
+{
+    // Avoid moving self to self.
+    if (this != &move)
+    {
+        // Move all data across.
+        position        = std::move (move.position);
+        type            = std::move (move.type);
+
+        direction       = std::move (move.direction);
+        coneAngle       = std::move (move.coneAngle);
+
+        colour          = std::move (move.colour);
+        concentration   = std::move (move.concentration);
+
+        aConstant       = std::move (move.aConstant);
+        aLinear         = std::move (move.aLinear);
+        aQuadratic      = std::move (move.aQuadratic);
+        emitWireframe   = std::move (move.emitWireframe);
+
+        // Reset standard data type.
+        move.type           = LightType::Point;
+        move.coneAngle      = 0.f;
+        move.concentration  = 0.f;
+        move.aConstant      = 0.f;
+        move.aLinear        = 0.f;
+        move.aQuadratic     = 0.f;
+        move.emitWireframe  = false;
+    }
+
+    return *this;
+}
+
+#pragma endregion
+
+
 #pragma region Constructors
 
 MyView::UniformData::UniformData (UniformData&& move)
@@ -25,18 +69,22 @@ MyView::UniformData& MyView::UniformData::operator= (UniformData&& move)
     // Avoid moving self to self.
     if (this != &move)
     {
+        // Move the data across.
         m_projection        = std::move (move.m_projection);
         m_view              = std::move (move.m_view);
         
         m_cameraPosition    = std::move (move.m_cameraPosition);
         m_ambience          = std::move (move.m_ambience);
-
-        m_numLights         = std::move (move.m_numLights);
         
         for (unsigned int i = 0; i < MAX_LIGHTS; ++i)
         {
             m_lights[i] = std::move (move.m_lights[i]);
         }
+
+        m_numLights         = std::move (move.m_numLights);
+
+        // Reset primitive data types.
+        m_numLights         = 0;
     }
 
     return *this;
@@ -47,58 +95,39 @@ MyView::UniformData& MyView::UniformData::operator= (UniformData&& move)
 
 #pragma region Setters
 
-void MyView::UniformData::setLightCount (const unsigned int count)
+void MyView::UniformData::setLightCount (const int count)
 {
-    m_numLights = util::min (count, MAX_LIGHTS);
+    m_numLights = util::clamp (count, 0, MAX_LIGHTS);
 }
 
 
-void MyView::UniformData::setLight (const unsigned int index, const SceneModel::Light& light)
+void MyView::UniformData::setLight (const int index, const SceneModel::Light& light, const LightType type)
 {
     // Pre-condition: Index is valid.
-    if (index < MAX_LIGHTS)
+    if (index < MAX_LIGHTS && index >= 0)
     {
         // Cache the light to be modified.
         auto& shaderLight = m_lights[index];
 
         // Move the data across.
         shaderLight.position    = light.getPosition();
+        shaderLight.type        = type;
+
         shaderLight.direction   = light.getDirection();
         shaderLight.coneAngle   = light.getConeAngleDegrees();
-        shaderLight.cConstant   = light.getConstantDistanceAttenuationCoefficient();
-        shaderLight.cQuadratic  = light.getQuadraticDistanceAttenuationCoefficient();
+
+        shaderLight.aConstant   = light.getConstantDistanceAttenuationCoefficient();
+        shaderLight.aQuadratic  = light.getQuadraticDistanceAttenuationCoefficient();
     }
 }
 
-#pragma endregion
-
-
-#pragma region Light structure
-
-MyView::UniformData::Light::Light (Light&& move)
+void MyView::UniformData::setLight (const int index, const Light& light)
 {
-    *this = std::move (move);
-}
-
-
-MyView::UniformData::Light& MyView::UniformData::Light::operator= (Light&& move)
-{
-    // Avoid moving self to self.
-    if (this != &move)
+    // Pre-condition: Index is valid.
+    if (index < MAX_LIGHTS && index >= 0)
     {
-        position        = std::move (move.position);
-        direction       = std::move (move.direction);
-        colour          = std::move (move.colour);
-
-        concentration   = std::move (move.concentration);
-        coneAngle       = std::move (move.coneAngle);
-
-        cConstant       = std::move (move.cConstant);
-        cLinear         = std::move (move.cLinear);
-        cQuadratic      = std::move (move.cQuadratic);
+        m_lights[index] = light;   
     }
-
-    return *this;
 }
 
 #pragma endregion

@@ -2,7 +2,7 @@
 
 #if !defined    MY_VIEW_UNIFORM_DATA_
 #define         MY_VIEW_UNIFORM_DATA_
-#define         MAX_LIGHTS  (unsigned int) 20
+#define         MAX_LIGHTS 20
 
 
 // Engine headers.
@@ -21,8 +21,48 @@ namespace SceneModel { class Light; }
 using GLuint    = unsigned int;
 
 
-// We shall manage the byte alignment ourselves since it needs to be aligned properly for the GPU.
-#pragma pack (push, 1)
+// We'll manage the data alignment by enforcing 4-byte alignment for all types.
+#pragma pack (push, 4)
+
+
+/// <summary>
+/// A simply enumeration of the light type to be used. Currently directional lights aren't supported by the shader.
+/// </summary>
+enum class LightType : int
+{
+    Point       = 0,    //!< Point lights create a sphere of light at a given position.
+    Spot        = 1,    //!< Spot lights beam light from a given position to a given direction.
+    Directional = 2     //!< Directional lights apply scene-wide lighting from a given direction.
+};
+
+
+/// <summary> 
+/// A basic light structure with the exact layout that the shaders expect.
+/// </summary>
+struct Light final
+{
+    glm::vec3   position        { 1.f };    //!< The world position of the light in the scene.
+    LightType   type            { };        //!< Determines how the light information is visually applied in the scene.
+
+    glm::vec3   direction       { 1.f };    //!< The direction of the light.
+    float       coneAngle       { 0.f };    //!< The cone angle for spot lights.
+
+    glm::vec3   colour          { 1.f };    //!< The un-attenuated colour of the light.
+    float       concentration   { 1.f };    //!< How concentrated beam of a spot light is.
+
+    float       aConstant       { 1.f };    //!< The constant co-efficient for the attenutation formula.
+    float       aLinear         { 0.f };    //!< The linear co-efficient for the attenutation formula.
+    float       aQuadratic      { 1.f };    //!< The quadratic co-efficient for the attenuation formula.
+    bool        emitWireframe   { false };  //!< Indicates whether the light should emit a wireframe onto surfaces.
+
+    Light()                                 = default;
+    Light (const Light& copy)               = default;
+    Light& operator= (const Light& copy)    = default;
+    ~Light()                                = default;
+
+    Light (Light&& move);
+    Light& operator= (Light&& move);
+};
 
 
 /// <summary> 
@@ -48,8 +88,8 @@ class MyView::UniformData final
 
         const glm::mat4& getProjectionMatrix() const            { return m_projection; }
         const glm::mat4& getViewMatrix() const                  { return m_view; }
-        const glm::vec3& getCameraPosition() const              { return m_cameraPosition; }
-        const glm::vec3& getAmbientColour() const               { return m_ambience; }
+        glm::vec3 getCameraPosition() const                     { return glm::vec3 (m_cameraPosition); }
+        glm::vec3 getAmbientColour() const                      { return glm::vec3 (m_ambience); }
         int getLightCount() const                               { return m_numLights; }
         
         /// <summary> Sets the projection transformation matrix. </summary>
@@ -60,18 +100,21 @@ class MyView::UniformData final
         
         /// <summary> Sets the camera position. </summary>
         /// <param name="position"> The position should be in world space. </param>
-        void setCameraPosition (const glm::vec3& position)      { m_cameraPosition = position; }
+        void setCameraPosition (const glm::vec3& position)      { m_cameraPosition = glm::vec4 (position, 0.f); }
         
         /// <summary> Sets the ambient scene colour to be used during shading. </summary>
         /// <param name="colour"> RGB values should range from 0 to 1. </param>
-        void setAmbientColour (const glm::vec3& colour)         { m_ambience = colour; }
+        void setAmbientColour (const glm::vec3& colour)         { m_ambience = glm::vec4 (colour, 1.f); }
         
         /// <summary> Sets the number of lights to render. </summary>
         /// <param name="count"> Lights 0 to (count - 1) will be rendered. </param>
-        void setLightCount (const unsigned int count);
+        void setLightCount (const int count);
         
-        /// <summary> Converts the desired light into shader-ready format. </summary>
-        void setLight (const unsigned int index, const SceneModel::Light& sceneLight);
+        /// <summary> Converts the desired SceneModel::Light into a shader-ready format. </summary>
+        void setLight (const int index, const SceneModel::Light& sceneLight, const LightType type);
+
+        /// <summary> Sets the light at the given index. </summary>
+        void setLight (const int index, const Light& light);
 
         #pragma endregion
 
@@ -93,53 +136,26 @@ class MyView::UniformData final
         static GLuint lightingOffset()  { return sizeof (UniformData) - lightingSize(); }
 
         /// <summary> Calculates the size of the lighting UBO in bytes. </summary>
-        static GLuint lightingSize()    { return sizeof (Light) * MAX_LIGHTS + sizeof (unsigned int); }
+        static GLuint lightingSize()    { return sizeof (Light) * MAX_LIGHTS + sizeof (glm::vec4); }
 
         #pragma endregion
 
     private:
-
-        #pragma region Light structure
-
-        /// <summary> 
-        /// A basic light structure as expected by shaders.
-        /// </summary>
-        struct Light final
-        {
-            glm::vec3   position        { 1.f, 1.f, 1.f };  //!< The world position of the light in the scene.
-            glm::vec3   direction       { 1.f, 1.f, 1.f };  //!< The direction of the light.
-            glm::vec3   colour          { 1.f, 1.f, 1.f };  //!< The un-attenuated colour of the light.
-            
-            float       concentration   { 1.f };            //!< How concentrated the luminance of the spot light is.
-            float       coneAngle       { 45.f };           //!< The angle of the light cone in degrees.
-
-            float       cConstant       { 1.f };            //!< The constant co-efficient for the attenutation formula.
-            float       cLinear         { 0.f };            //!< The linear co-efficient for the attenutation formula.
-            float       cQuadratic      { 1.f };            //!< The quadratic co-efficient for the attenuation formula.
-
-            Light()                                 = default;
-            Light (const Light& copy)               = default;
-            Light& operator= (const Light& copy)    = default;
-            ~Light()                                = default;
-
-            Light (Light&& move);
-            Light& operator= (Light&& move);
-        };
-
-        #pragma endregion
     
         #pragma region Implementation data
 
-        glm::mat4       m_projection            { 1.f };            //!< The project matrix used during the rendering of the current frame.
-        glm::mat4       m_view                  { 1.f };            //!< The view matrix from the current cameras position and direction.
+        glm::mat4   m_projection            { 1.f };    //!< The project matrix used during the rendering of the current frame.
+        glm::mat4   m_view                  { 1.f };    //!< The view matrix from the current cameras position and direction.
 
-        glm::vec3       m_cameraPosition        { 0.f, 0.f, 0.f };  //!< The world-space position of the camera.
-        glm::vec3       m_ambience              { 1.f, 1.f, 1.f };  //!< The ambient colour of the scene.
+        glm::vec4   m_cameraPosition        { 0.f };    //!< The world-space position of the camera. The W value is padding required by the shader.
+        glm::vec4   m_ambience              { 1.f };    //!< The ambient colour of the scene. The alpha value is padding required by the shader.
 
-        float           unused[26];                                 //!< An unused block for 256-byte alignment.
+        float       unused[24];                         //!< An unused array for 256-byte alignment to the binding block.
 
-        unsigned int    m_numLights             { 0 };              //!< The number of lights currently in the scene.
-        Light           m_lights[MAX_LIGHTS]    { };                //!< Data for each light in the scene.
+        Light       m_lights[MAX_LIGHTS]    { };        //!< Data for each light in the scene.
+        int         m_numLights             { 0 };      //!< The number of lights currently in the scene.
+
+        float       alignment[3];                       //!< Align UniformData to 128-bits.
 
         #pragma endregion
 };

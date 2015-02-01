@@ -188,3 +188,4 @@ media/
 temp/
 test/
 demo/*.exe
+*.nvuser

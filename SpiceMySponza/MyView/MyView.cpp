@@ -615,7 +615,7 @@ void MyView::setUniforms (const void* const projectionMatrix, const void* const 
     // Add each light to the data.
     for (unsigned int i = 0; i < lights.size(); ++i)
     {
-        data.setLight (i, lights[i]);   
+        data.setLight (i, lights[i], LightType::Spot);   
     }
 
     // Overwrite the current uniform data.
