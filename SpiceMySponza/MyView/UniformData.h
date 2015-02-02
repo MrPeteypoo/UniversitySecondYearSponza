@@ -153,10 +153,10 @@ class MyView::UniformData final
         glm::vec4   m_cameraPosition        { 0.f };    //!< The world-space position of the camera. The W value is padding required by the shader.
         glm::vec4   m_ambience              { 1.f };    //!< The ambient colour of the scene. The alpha value is padding required by the shader.
 
-        float       unused[24];                         //!< An unused array for 256-byte alignment to the binding block.
+        float       m_unused[24];                       //!< An unused array for 256-byte alignment to the binding block.
         
         int         m_numLights             { 0 };      //!< The number of lights currently in the scene.
-        float       alignment[3];                       //!< Align UniformData to 128-bits.
+        float       m_alignment[3];                     //!< Align UniformData to 128-bits.
         
         Light       m_lights[MAX_LIGHTS]    { };        //!< Data for each light in the scene.
 

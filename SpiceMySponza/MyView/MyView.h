@@ -62,17 +62,17 @@ class MyView final : public tygra::WindowViewDelegate
 
         #pragma region Scene construction
 
-        /// <summary> Causes the object to initialise, loading and preparing all data. </summary>
+        /// <summary> Causes the object to initialise; loading and preparing all data. </summary>
         void windowViewWillStart (std::shared_ptr<tygra::Window> window) override final;
 
         /// <summary> Will create the program then compile, attach and link all required shaders together. </summary>
         /// <returns> Whether the program was compiled properly. </returns>
         bool buildProgram();
 
-        /// <summary> Generates every VAO and buffers owned by the MyView class. </summary>
+        /// <summary> Generates the VAO and buffers owned by the MyView class. </summary>
         void generateOpenGLObjects();
 
-        /// <summary> Retrieves all VAO and VBO ready for the rendering of the scene. </summary>
+        /// <summary> Creates a mesh of every object in the scene and loads the data into VBOs. </summary>
         void buildMeshData();
 
         /// <summary> Creates a material for each materialID in the map, ready for rendering. </summary>
@@ -123,7 +123,7 @@ class MyView final : public tygra::WindowViewDelegate
 
         /// <summary> Sets all uniform values for the scene. Avoid including GLM in MyView by passing void*. </summary>
         /// <param name="projectionMatrix"> A pointer to a glm::mat4 projection matrix for the scene. </param>
-        /// <param name="projectionMatrix"> A pointer to a glm::mat4 view matrix for the scene. </param>
+        /// <param name="viewMatrix"> A pointer to a glm::mat4 view matrix for the scene. </param>
         void setUniforms (const void* const projectionMatrix, const void* const viewMatrix);
 
         /// <summary> Creates a wireframe light based on the cameras position. </summary>

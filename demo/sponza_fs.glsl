@@ -1,5 +1,6 @@
 /// <summary> The fragment shader used in SpiceMy Sponza. The shader implements the Phong reflection model. </summary>
-/// <namespace> GLSL::FRAGMENT </namespace>
+/// <namespace> GLSL </namespace>
+/// <class> Fragment </class>
 
 #version 330
 #define MAX_LIGHTS 20
@@ -25,11 +26,11 @@ struct Light
 /// <summary> The uniform buffer scene specific information. </summary>
 layout (std140) uniform scene
 {
-    mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
-    mat4    view;               //!< The view transform representing where the camera is looking.
+    mat4    projection;     //!< The projection transform which establishes the perspective of the vertex.
+    mat4    view;           //!< The view transform representing where the camera is looking.
 
-    vec3    cameraPosition;     //!< Contains the position of the camera in world space.
-    vec3    ambience;           //!< The ambient lighting in the scene.
+    vec3    cameraPosition; //!< Contains the position of the camera in world space.
+    vec3    ambience;       //!< The ambient lighting in the scene.
 };
 
 
@@ -94,23 +95,33 @@ float spotLightConeAttenuation (const Light light, const vec3 L);
 /// <returns> The calculated diffuse and specular lighting with the given colour applied. </returns>
 vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 colour, const float lambertian);
 
+/// <summary> 
+/// Using interpolated barycentric co-ordinates passed through by the vertex shader this function calculates the wireframe
+/// colour of the current fragment.
+/// </summary>
+/// <returns> A white colour to represent a line on the wireframe, black the fragment isn't part of a line. </returns>
 vec3 wireframe();
 
 
-// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Ln.N) + Ks (Ln.Rv)p)
+// Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Ln.N) + Ks pow ((Rn.V), p))
 // Ia   = Ambient scene light.
 // Ka   = Ambient map.
-// Il,n = Current light colour.
+// Il,n = Current light intensity.
 // Kd   = Diffuse colour.
 // Ks   = Specular colour.
 // Ln.N = Dot product of direction to current light and normal.
-// Ln.Rv
+// Rn.V = Dot product of the reflected light direction from the normal and the direction to the viewer.
+// p    = The specular shininess factor.
 
-vec3 ambientMap     = vec3 (1.0, 1.0, 1.0);
-vec3 textureColour  = vec3 (1.0, 1.0, 1.0);
-vec3 diffuse        = vec3 (1.0, 1.0, 1.0);
-vec3 specular       = vec3 (1.0, 1.0, 1.0);
-float shininess     = 16.0;
+/// <summary> Contains the properties of the material to be applied to the current fragment. </summary>
+struct Material
+{
+    vec3 ambientMap;
+    vec3 texture;
+    vec3 diffuse;
+    vec3 specular;
+    float shininess;
+} material;
 
 
 void main()
@@ -118,7 +129,7 @@ void main()
     // Ensure we're using the correct colours.
     obtainMaterialProperties();
 
-    // Parameters.
+    // Calculate the required static shading vectors once per fragment instead of once per light.
     vec3 Q = worldPosition;
     vec3 N = normalize (worldNormal);
     vec3 V = normalize (cameraPosition - Q);
@@ -133,7 +144,7 @@ void main()
     }
     
     // Put the equation together and we get....
-    vec3 phong = ambience * ambientMap + lighting;
+    vec3 phong = ambience * material.ambientMap + lighting;
     
     // Output the calculated fragment colour.
     fragmentColour = vec4 (phong, 1.0);
@@ -148,26 +159,27 @@ void obtainMaterialProperties()
     vec4 specularPart   = texelFetch (materialBuffer, instanceID * 2 + 1);
     
     // The RGB values of the diffuse part are the diffuse colour.
-    diffuse = diffusePart.rgb;
+    material.diffuse    = diffusePart.rgb;
 
     // The alpha of the diffuse part represents the texture to use for the ambient map. -1 == no texture.
     if (diffusePart.a >= 0.0)
     {
-        textureColour = texture (textureArray, vec3 (texturePoint, diffusePart.a)).rgb;
-        ambientMap = textureColour;
+        material.texture    = texture (textureArray, vec3 (texturePoint, diffusePart.a)).rgb;
+        material.ambientMap = material.texture;
     }
 
+    // Use the diffuse colour for the ambient map and don't apply an extra texture colour.
     else
     {
-        // Use the diffuse colour for the ambient map and don't apply an extra texture colour.
-        ambientMap = diffuse;
+        material.texture    = vec3 (1.0);
+        material.ambientMap = material.diffuse;
     }
     
     // The RGB values of the specular part is the specular colour.    
-    specular = specularPart.rgb;
+    material.specular   = specularPart.rgb;
     
     // The alpha value of the specular part is the shininess value.
-    shininess = specularPart.a;
+    material.shininess  = specularPart.a;
 }
 
 
@@ -227,7 +239,7 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
                 vec3 emissiveLighting = calculateLighting (L, N, V, vec3 (1), lambertian);
                 
                 // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
-                // really smooth transition between the standard Phong shading and the wireframe rendering!
+                // really smooth transition between the standard Phong shading and the wireframe emissive shading!
                 lighting += (emissiveLighting + wireframe()) * smoothstep (0.0, 1.0, attenuation);
             }
         }
@@ -287,16 +299,16 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
     if (lambertian > 0)
     {
         // Diffuse is easy, apply the texture and base colour with the given luminance.
-        diffuseLighting = diffuse * textureColour * lambertian;
+        diffuseLighting = material.diffuse * material.texture * lambertian;
 
         // Calculate the specular lighting.
-        if (shininess > 0)
+        if (material.shininess > 0)
         {
             // We need to reflect the direction from the surface to the light for the specular calculations.
             vec3 R = reflect (L, N);
             
-            // Finally use Kspecular = pow (V.-R, shininess) for the specular formula.
-            specularLighting = specular * pow (max (dot (V, -R), 0), shininess);
+            // Finally use Kspecular = S * pow (-R.V, shininess) for the specular formula.
+            specularLighting = material.specular * pow (max (dot (-R, V), 0), material.shininess);
         }
     }
 
@@ -305,15 +317,19 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
 
 vec3 wireframe()
 {
-    // This code is taken from a very useful blog post. Credit to Florian Boesch for such simple code.
-    // Boesch, F. (2012) Easy wireframe display with barycentric coordinates. 
-    // Available at: http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/ (Accessed: 01/02/2015).
-    
+    /// This code is taken from a very useful blog post. Credit to Florian Boesch for such simple code.
+    /// Boesch, F. (2012) Easy wireframe display with barycentric coordinates. 
+    /// Available at: http://codeflow.org/entries/2012/aug/02/easy-wireframe-display-with-barycentric-coordinates/ (Accessed: 01/02/2015).
+
+    /// I chose to implement the wireframe in this manner because it allows me to only apply the wire colour so that the normal surface/material
+    /// colour can be used to fill in the frame. This looks really nice and allows us to smoothly interpolate between wireframe and Phong shading.
+    /// This gives the scene the appearance of the wireframe and emissive light slowly fading out.
+        
     // Determine how much of an edge exists at the interpolated barycentric point.
     vec3 d              = fwidth (baryPoint);
     vec3 a3             = smoothstep (vec3 (0.0), d * 1.5, baryPoint);
     float edgeFactor    = min (min (a3.x, a3.y), a3.z);
 
-    // Return the desired wireframe addition.
+    // Mix an intense white and black colour based on how much of an edge exists.
     return mix (vec3 (3.0), vec3 (0.0), edgeFactor);
 }

@@ -71,7 +71,7 @@ namespace util
 
     /// <summary> Generates a texture buffer from the given file location. </summary>
     /// <param name="textureBuffer"> The buffer to fill with the texture data. </param>
-    /// <param name="fileLocation> The location of the texture file to load. </param>
+    /// <param name="fileLocation"> The location of the texture file to load. </param>
     void generateTexture2D (GLuint& textureBuffer, const std::string& fileLocation);
 
     #pragma endregion

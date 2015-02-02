@@ -1,5 +1,6 @@
 /// <summary> The vertex shader used in Spice My Sponza. Prepares the information required for the fragment shader. </summary>
-/// <namespace> GLSL::VERTEX </namespace>
+/// <namespace> GLSL </namespace>
+/// <class> Vertex </class>
 
 #version 330
 
@@ -61,10 +62,15 @@ vec3 barycentric()
     /// I chose this route for multiple reasons; firstly I use the vertex ID because it has the same effect as assigning each vertex an extra
     /// attribute for little run-time cost. This reduces memory consumption and means the GPU can process more vertices due to more bandwidth being 
     /// available. Secondly, it is very easy to implement and although it can miss some lines, the end result is a very convincing wireframe around objects.
+    /// Thirdly, it allows me to have wireframe functionality without performing a second pass through the rendering process which performing the task
+    /// on the OpenGL side would require. Finally if I had access to the geometry shader I would manage the barycentric co-ordinates there so that I'm not
+    /// doing a division for every vertex. Unfortunately I don't so I have to use the Vertex ID instead.
+    ///
+    /// Some basic testing shows this method rendering speed by ~3% which is fairly negligible.
 
     
-    // Unfortunately the labs GPUs require the co-ordinates be weighted in a special way for the effect to be correct.
-    // My AMD card at home works fine with (1, 0, 0), (0, 1, 0) and (0, 0, 1).
+    // Unfortunately the lab GPUs require the co-ordinates be weighted in a special way for the effect to be correct.
+    // My AMD card at home works fine with (1, 0, 0), (0, 1, 0) and (0, 0, 1) and this way.
     const float weight = 100;
     switch (gl_VertexID % 3)
     {
