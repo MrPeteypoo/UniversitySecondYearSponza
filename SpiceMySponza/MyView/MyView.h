@@ -55,6 +55,9 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Enables a wireframe view near the camera. </summary>
         void toggleWireframeMode()  { m_wireframeMode = !m_wireframeMode; }
 
+        /// <summary> Cycles through point, spot and directional wireframe mode. </summary>
+        void toggleWireframeType()  { ++m_wireframeType; }
+
         #pragma endregion
 
     private:
@@ -176,9 +179,10 @@ class MyView final : public tygra::WindowViewDelegate
 
         std::shared_ptr<const SceneModel::Context>              m_scene             { nullptr };    //!< The sponza scene containing instance and camera information.
         std::vector<std::pair<SceneModel::MeshId, Mesh*>>       m_meshes            { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
-        std::unordered_map<SceneModel::MaterialId, MaterialID>  m_materialIDs      { };             //!< A map containing each material used for rendering.
+        std::unordered_map<SceneModel::MaterialId, MaterialID>  m_materialIDs       { };            //!< A map containing each material used for rendering.
 
         bool                                                    m_wireframeMode     { false };      //!< Causes the camera to show a wireframe around meshes nearby.
+        unsigned int                                            m_wireframeType     { 0 };          //!< Allows the user to cycle through point, spot and directional mode.
 
         #pragma endregion
 };

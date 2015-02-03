@@ -748,12 +748,14 @@ Light MyView::createWireframeLight() const
 
     // Set suitable attenuation values.
     wireframe.aConstant     = 1.0f;
-    wireframe.aLinear       = 0.275f;
-    wireframe.aQuadratic    = 0.0f;
+    wireframe.aLinear       = 0.0f;
+    wireframe.aQuadratic    = 0.002f;
 
-    // Enable the wireframe and we're done!
+    // Enable the wireframe and we're done! We only have three modes so use the currently selected.
+    const LightType type    = static_cast<LightType> (m_wireframeType % 3);
+
     wireframe.emitWireframe = 1;
-    wireframe.setType (LightType::Point);
+    wireframe.setType (type);
 
     return wireframe;
 }

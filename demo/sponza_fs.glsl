@@ -244,32 +244,28 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
             default:
                 break;
         }
+		
+		// Booleans don't seem to translate to the UBO accurately.
+		if (light.emitWireframe != 1)
+		{
+			// Calculate the final colour of the light. 
+			vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
 
-        // Check if any light still exists.
-        if (attenuation > 0)
-        {
-            // Booleans don't seem to translate to the UBO accurately.
-            if (light.emitWireframe != 1)
-            {
-                // Calculate the final colour of the light. 
-                vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
+			// Increase the lighting to apply to the current fragment.
+			lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
+		}
 
-                // Increase the lighting to apply to the current fragment.
-                lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
-            }
-
-            // Enable the wireframe view!
-            else
-            {
-                // The materials should look emissive by using a bright white, unattenuated light.
-                vec3 emissiveLighting	= calculateLighting (L, N, V, vec3 (2), lambertian);
-                
-                // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
-                // really smooth transition between the standard Phong shading and the wireframe emissive shading!
-				const vec3 wireColour	= vec3 (0.0, 1.0, 0.0);
-                lighting += (emissiveLighting + wireframe (wireColour)) * smoothstep (0.0, 1.0, attenuation);
-            }
-        }
+		// Enable the wireframe view!
+		else
+		{
+			// The materials should look emissive by using a bright white, unattenuated light.
+			vec3 emissiveLighting	= calculateLighting (L, N, V, vec3 (0.5), lambertian);
+			
+			// Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
+			// really smooth transition between the standard Phong shading and the wireframe emissive shading!
+			const vec3 wireColour	= vec3 (1.0, 1.0, 1.0);
+			lighting += (emissiveLighting + wireframe (wireColour)) * smoothstep (0.0, 1.0, attenuation);
+		}
     }
 
     // Return the accumulated lighting.
@@ -358,5 +354,5 @@ vec3 wireframe (const vec3 wireColour)
     float edgeFactor    = min (min (a3.x, a3.y), a3.z);
 
     // Mix an intense white and black colour based on how much of an edge exists.
-    return wireColour * mix (vec3 (4.0), vec3 (0.0), edgeFactor);
+    return wireColour * mix (vec3 (1.0), vec3 (0.0), edgeFactor);
 }

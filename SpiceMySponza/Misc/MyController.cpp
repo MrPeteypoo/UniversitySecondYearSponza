@@ -116,6 +116,11 @@ windowControlKeyboardChanged(std::shared_ptr<tygra::Window> window,
         }
 
         break;
+    case 'E':
+        if (down)
+        {
+            view_->toggleWireframeType();
+        }
 	}
 
 	updateCameraTranslation();
@@ -205,6 +210,11 @@ windowControlGamepadButtonChanged(std::shared_ptr<tygra::Window> window,
     if (button_index == 0 && down)
     {
         view_->toggleWireframeMode();
+    }
+
+    if (button_index == 1 && down)
+    {
+        view_->toggleWireframeType();
     }
 }
 
