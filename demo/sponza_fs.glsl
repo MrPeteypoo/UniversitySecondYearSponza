@@ -3,6 +3,7 @@
 /// <class> Fragment </class>
 
 #version 330
+
 #define MAX_LIGHTS 20
 
 
@@ -42,10 +43,9 @@ layout (std140) uniform lighting
 };
 
 
-layout (binding = 0)    uniform sampler2DArray  textures;       //!< The desired texture to apply to the particular pixel.
-layout (binding = 1)    uniform samplerBuffer   materials;      //!< A texture buffer filled with the required diffuse and specular properties for the material.
-layout (binding = 2)    uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
-
+                        uniform sampler2DArray  textures;       //!< The desired texture to apply to the particular pixel.
+                        uniform samplerBuffer   materials;      //!< A texture buffer filled with the required diffuse and specular properties for the material.
+                        uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
 
                         in      vec3            worldPosition;  //!< The fragments position vector in world space.
                         in      vec3            worldNormal;    //!< The fragments normal vector in world space.

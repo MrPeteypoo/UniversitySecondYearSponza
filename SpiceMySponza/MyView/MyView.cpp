@@ -75,7 +75,7 @@ MyView& MyView::operator= (MyView&& move)
         move.m_textureArray     = 0;
 
         move.m_instancePoolSize = 0;
-        move.m_poolTransforms    = 0;
+        move.m_poolTransforms   = 0;
 
         move.m_aspectRatio      = 0.f;
     }
@@ -223,8 +223,8 @@ void MyView::buildMeshData()
     glBindBuffer (GL_ELEMENT_ARRAY_BUFFER, m_elementVBO);
 
     // Iterate through each mesh adding them to the mesh container.
-    GLint   vertexIndex      { 0 }; 
-    GLint   elementOffset    { 0 };
+    GLint vertexIndex   { 0 }; 
+    GLint elementOffset { 0 };
     
     for (unsigned int i = 0; i < meshes.size(); ++i)
     {
@@ -232,7 +232,7 @@ void MyView::buildMeshData()
         const auto& mesh        = meshes[i];
         const auto& elements    = mesh.getElementArray();
         
-        // Initialise a new mesh.
+        // Initialise a rendering-ready mesh.
         Mesh* newMesh { new Mesh() };
         newMesh->verticesIndex   = vertexIndex;
         newMesh->elementsOffset  = elementOffset;
@@ -275,7 +275,6 @@ void MyView::allocateExtraBuffers()
     // The UBO will contain every uniform variable apart from textures. 
     util::allocateBuffer (m_uniformUBO, sizeof (UniformData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
 
-    // Use
     // The matrices pool stores the model and PVM transformation matrices of each instance, therefore we need two.
     util::allocateBuffer (m_poolTransforms, transformSize, GL_ARRAY_BUFFER, GL_STREAM_DRAW);
 
@@ -286,6 +285,10 @@ void MyView::allocateExtraBuffers()
 
 void MyView::buildMaterialData()
 {
+    /// We preload the materials into the GPU at the start of the scene because we know they will never change. Using this approach means that
+    /// each material can be linked with preloaded textures and therefore we only need to give an instance an ID so that it can choose the correct
+    /// material and texture for lighting calculations.
+
     // Obtain every material in the scene.
     const auto& materials = m_scene->getAllMaterials();
 
@@ -353,6 +356,17 @@ void MyView::buildMaterialData()
 
 void MyView::constructVAO()
 {
+    /// Here we combine all vertex attributes into a 32-byte aligned interleaved VBO. The reason for this is that being a power of two maps
+    /// perfectly with the memory bus width of many GPUs, in this particular case a 256-bit wide memory bus could load a vertex in a single segment.
+    /// It also allows us to consolidate vertex-specific information into a unique buffer so we know where everything is.
+    ///
+    /// We also use a single VBO to store the entire scene, since the vertex attributes of every mesh in the scene is static and only the transformation
+    /// matrices change, we don't need to flexibility that having multiple VBOs provides. The VBO also contains meshes which are perfectly aligned to
+    /// the order of which we draw meshes, e.g. the third mesh in the draw loop is the third mesh stored in the GPU, potentially avoiding cache misses.
+    ///
+    /// Finally we use a single VAO for the scene because it allows us to avoid the cost required to bind a different VAO each mesh. Perhaps if we
+    /// separated the scene into static and dynamic objects with a different VAO for each there would be some benefit but in this case we don't.
+
     // Obtain the attribute pointer locations we'll be using to construct the VAO.
     int position        { glGetAttribLocation (m_program, "position") };
     int normal          { glGetAttribLocation (m_program, "normal") };
@@ -396,11 +410,11 @@ void MyView::constructVAO()
 
 void MyView::prepareTextureData (const GLsizei textureWidth, const GLsizei textureHeight, const GLsizei textureCount)
 {
-    // Active the material TBO and point it to the material VBO.
+    // Activate the material TBO by pointing it to the material VBO.
     glBindTexture (GL_TEXTURE_BUFFER, m_materials.tbo);
     glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32F, m_materials.vbo);
 
-    // Active the material IDs TBO and point it to the IDs VBO.
+    // Do the same for the material ID instance pool.
     glBindTexture (GL_TEXTURE_BUFFER, m_poolMaterialIDs.tbo);
     glTexBuffer (GL_TEXTURE_BUFFER, GL_RGBA32I, m_poolMaterialIDs.vbo);
 
@@ -422,6 +436,11 @@ void MyView::prepareTextureData (const GLsizei textureWidth, const GLsizei textu
 
 void MyView::loadTexturesIntoArray (const std::vector<std::pair<std::string, tygra::Image>>& images)
 {
+    /// Here we load a container of images into the GPU using a 2D texture array. The reason I've chosen this route is that it means that I can avoid binding
+    /// a different texture every time the material changes. Instead of binding the correct texture we just provide an ID in each material which links to the
+    /// texture in the array. Therefore we avoid binding calls, we store the materials in the GPU so the information is easily accessible and if a shader
+    /// decided it wanted to combine textures it can.
+
     glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray); 
 
     for (size_t i = 0; i < images.size(); ++i)
@@ -644,18 +663,18 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 
 void MyView::setUniforms (const void* const projectionMatrix, const void* const viewMatrix)
 {
-    //// Fix the stupid lab computers not liking how I don't specify he texture unit and how I like using both on texture unit 0.
-    //const auto textures     = glGetUniformLocation (m_program, "textures");
-    //const auto materials    = glGetUniformLocation (m_program, "materials");
-    //const auto materialIDs  = glGetUniformLocation (m_program, "materialIDs");
+    //// Fix the stupid lab computers not liking how I don't specify the texture unit and how I like using both on texture unit 0.
+    const auto textures     = glGetUniformLocation (m_program, "textures");
+    const auto materials    = glGetUniformLocation (m_program, "materials");
+    const auto materialIDs  = glGetUniformLocation (m_program, "materialIDs");
     //
     //glUniform1i (textures, m_textureArray);
     //glUniform1i (materials, m_materials.tbo);
     //glUniform1i (materialIDs, m_poolMaterialIDs.tbo);
     //
-    ///*glUniform1i (textures, 0);
-    //glUniform1i (materials, 1);
-    //glUniform1i (materialIDs, 2);*/
+    glUniform1i (textures, 0);
+    glUniform1i (materials, 1);
+    glUniform1i (materialIDs, 2);
 
     // Create data to fill.
     UniformData data { };
