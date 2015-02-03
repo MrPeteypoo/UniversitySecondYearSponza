@@ -100,8 +100,9 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
 /// Using interpolated barycentric co-ordinates passed through by the vertex shader this function calculates the wireframe
 /// colour of the current fragment.
 /// </summary>
+/// <param name="wireColour"> The base colour for the wireframe. </param>
 /// <returns> A white colour to represent a line on the wireframe, black the fragment isn't part of a line. </returns>
-vec3 wireframe();
+vec3 wireframe (const vec3 wireColour);
 
 
 // Phong reflection model: I = Ia Ka + sum[0-n] Il,n (Kd (Ln.N) + Ks pow ((Rn.V), p))
@@ -261,11 +262,12 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
             else
             {
                 // The materials should look emissive by using a bright white, unattenuated light.
-                vec3 emissiveLighting = calculateLighting (L, N, V, vec3 (1), lambertian);
+                vec3 emissiveLighting	= calculateLighting (L, N, V, vec3 (2), lambertian);
                 
                 // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
                 // really smooth transition between the standard Phong shading and the wireframe emissive shading!
-                lighting += (emissiveLighting + wireframe()) * smoothstep (0.0, 1.0, attenuation);
+				const vec3 wireColour	= vec3 (0.0, 1.0, 0.0);
+                lighting += (emissiveLighting + wireframe (wireColour)) * smoothstep (0.0, 1.0, attenuation);
             }
         }
     }
@@ -308,7 +310,7 @@ float spotLightConeAttenuation (const Light light, const vec3 L)
     float halfAngle     = cos (light.directionAngle.w / 2);
 
     // Attenuate using smoothstep.
-    float attenuation   = smoothstep (0.0, 1.0, (coneFactor - halfAngle) / halfAngle);
+    float attenuation   = coneFactor >= halfAngle ? smoothstep (0.0, 0.5, (coneFactor - halfAngle) / halfAngle) : 0.0;
     
     // Return the calculated attenuation factor.
     return attenuation;
@@ -340,7 +342,7 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
     return colour * (diffuseLighting + specularLighting);
 }
 
-vec3 wireframe()
+vec3 wireframe (const vec3 wireColour)
 {
     /// This code is taken from a very useful blog post. Credit to Florian Boesch for such simple code.
     /// Boesch, F. (2012) Easy wireframe display with barycentric coordinates. 
@@ -356,5 +358,5 @@ vec3 wireframe()
     float edgeFactor    = min (min (a3.x, a3.y), a3.z);
 
     // Mix an intense white and black colour based on how much of an edge exists.
-    return mix (vec3 (3.0), vec3 (0.0), edgeFactor);
+    return wireColour * mix (vec3 (4.0), vec3 (0.0), edgeFactor);
 }

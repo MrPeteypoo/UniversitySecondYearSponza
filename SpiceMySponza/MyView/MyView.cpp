@@ -268,9 +268,9 @@ void MyView::allocateExtraBuffers()
     // We'll need to keep track of the highest number of instances in the scene.
     m_instancePoolSize          = highestInstanceCount();
 
-    // We need to store two matrices per instance and we need to ensure the VBO aligns to a glm::vec4.
+    // We need to store two matrices per instance and we need to ensure the materialID pool aligns to a glm::vec4, otherwise we end up with missing data.
     const auto transformSize    = m_instancePoolSize * sizeof (glm::mat4) * 2;
-    const auto materialIDSize   = m_instancePoolSize * sizeof (MaterialID);
+    const auto materialIDSize   = (m_instancePoolSize + m_instancePoolSize % 4) * sizeof (MaterialID);
 
     // The UBO will contain every uniform variable apart from textures. 
     util::allocateBuffer (m_uniformUBO, sizeof (UniformData), GL_UNIFORM_BUFFER, GL_DYNAMIC_DRAW);
@@ -748,7 +748,7 @@ Light MyView::createWireframeLight() const
 
     // Set suitable attenuation values.
     wireframe.aConstant     = 1.0f;
-    wireframe.aLinear       = 0.3f;
+    wireframe.aLinear       = 0.275f;
     wireframe.aQuadratic    = 0.0f;
 
     // Enable the wireframe and we're done!
