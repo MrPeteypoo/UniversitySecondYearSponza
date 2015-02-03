@@ -47,14 +47,14 @@ layout (binding = 1)    uniform samplerBuffer   materials;      //!< A texture b
 layout (binding = 2)    uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
 
 
-        in      vec3            worldPosition;  //!< The fragments position vector in world space.
-        in      vec3            worldNormal;    //!< The fragments normal vector in world space.
-        in      vec3            baryPoint;      //!< The barycentric co-ordinate of the current fragment, useful for wireframe rendering.
-        in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
-flat    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
+                        in      vec3            worldPosition;  //!< The fragments position vector in world space.
+                        in      vec3            worldNormal;    //!< The fragments normal vector in world space.
+                        in      vec3            baryPoint;      //!< The barycentric co-ordinate of the current fragment, useful for wireframe rendering.
+                        in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
+flat                    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
 
 
-        out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
+                        out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
 
 
 /// <summary> Updates the ambient, diffuse and specular colours from the materialTBO for this fragment. </summary>

@@ -49,6 +49,9 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Sets the SceneModel::Context to use for rendering. </summary>
         void setScene (std::shared_ptr<const SceneModel::Context> scene);
 
+        /// <summary> Causes the application to rebuild the entire scene. </summary>
+        void rebuildScene();
+
         /// <summary> Enables a wireframe view near the camera. </summary>
         void toggleWireframeMode()  { m_wireframeMode = !m_wireframeMode; }
 

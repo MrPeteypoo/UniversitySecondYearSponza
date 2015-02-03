@@ -109,11 +109,19 @@ MyView::SamplerBuffer& MyView::SamplerBuffer::operator= (SamplerBuffer&& move)
 #pragma endregion
 
 
-#pragma region Getters and setters
+#pragma region Public interface
 
 void MyView::setScene (std::shared_ptr<const SceneModel::Context> scene)
 {
     m_scene = scene;
+}
+
+
+void MyView::rebuildScene()
+{
+    // Rebuild the entire scene bruv!
+    windowViewDidStop (nullptr);
+    windowViewWillStart (nullptr);
 }
 
 #pragma endregion
@@ -131,7 +139,10 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
     glClearColor (0.f, 0.1f, 0.f, 0.f);
     
     // Attempt to build the program, if it fails the user can reload after correcting any syntax errors.
-    buildProgram();    
+    if (buildProgram())
+    {
+        std::cout << "OpenGL application built successfully." << std::endl;
+    }
 
     // Generate the buffers.
     generateOpenGLObjects();
@@ -535,6 +546,11 @@ void MyView::windowViewDidReset (std::shared_ptr<tygra::Window> window, int widt
 
 void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 {
+    /// For the rendering of the scene I have chosen to implement instancing. A traditional approach of rendering would be looping through each instance,
+    /// assigning the correct model and PVM transforms, then drawing that one mesh before repeating the process. I don't use that method here, instead
+    /// I loop through mesh, obtain the number of instances, load in the data specific to those instances and draw them all at once, letting the shaders
+    /// obtain the correct information. I choose this method because although it doesn't help in a simple scene like sponza; scenes with particle systems,
+    /// large-scale mesh duplication and such would really benefit from reducing the overhead that bindings, uniform specification and draw calls cost.
     assert (m_scene != nullptr);
 
     // Specify shader program to use.
@@ -554,6 +570,10 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     // Specify the VAO to use.
     glBindVertexArray (m_sceneVAO);
 
+    // Specify the buffers to use.
+    glBindBuffer (GL_ARRAY_BUFFER, m_poolTransforms);
+    glBindBuffer (GL_TEXTURE_BUFFER, m_poolMaterialIDs.vbo);
+
     // Specify the textures to use.
     glActiveTexture (GL_TEXTURE0);
     glBindTexture (GL_TEXTURE_2D_ARRAY, m_textureArray);
@@ -564,20 +584,14 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     glActiveTexture (GL_TEXTURE2);
     glBindTexture (GL_TEXTURE_BUFFER, m_poolMaterialIDs.tbo);
 
-    // Specify the buffers to use.
-    glBindBuffer (GL_ARRAY_BUFFER, m_poolTransforms);
-    glBindBuffer (GL_TEXTURE_BUFFER, m_poolMaterialIDs.vbo);
-
-    // Cache a vector full of model and PVM matrices for instancing.
+    // Use vectors for storing instancing data> This requires a material ID, a model transform and a PVM transform.
+    static std::vector<MaterialID> materialIDs (m_instancePoolSize);
     static std::vector<glm::mat4> matrices (m_instancePoolSize * 2);
 
-    // Cache a vector full of material IDs for instancing.
-    static std::vector<MaterialID> materialIDs (m_instancePoolSize);
-
-    // Iterate through each mesh using instance rendering to reduce GL calls.
+    // Iterate through each mesh using instancing to reduce GL calls.
     for (const auto& pair : m_meshes)
     {
-        // Obtain the each instance for the current mesh.
+        // Obtain the instances to draw for the current mesh.
         const auto& instances   = m_scene->getInstancesByMeshId (pair.first);
         const auto size         = instances.size();
 
@@ -615,7 +629,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
         }
     }
 
-    // Unbind all buffers.
+    // UNBIND IT ALL CAPTAIN!
     glBindVertexArray (0);
     glBindBuffer (GL_ARRAY_BUFFER, 0);
     glBindBuffer (GL_TEXTURE_BUFFER, 0);
