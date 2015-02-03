@@ -20,9 +20,9 @@ struct MyView::Mesh final
 {
     #pragma region Implementation data
 
-    GLint           verticesIndex   { 0 };  //!< The index of a VBO where the vertices for the mesh begin.
-    GLuint          elementsOffset  { 0 };  //!< An offset in bytes used to draw the mesh in the scene.
-    unsigned int    elementCount    { 0 };  //!< Indicates how many elements there are.
+    GLint   verticesIndex   { 0 };  //!< The index of a VBO where the vertices for the mesh begin.
+    GLint   elementsOffset  { 0 };  //!< An offset in bytes used to draw the mesh in the scene.
+    size_t  elementCount    { 0 };  //!< Indicates how many elements there are.
 
     #pragma endregion
 

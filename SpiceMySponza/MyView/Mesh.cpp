@@ -20,9 +20,13 @@ MyView::Mesh& MyView::Mesh::operator= (Mesh&& move)
     // Avoid moving self to self.
     if (this != &move)
     {
-        verticesIndex   = std::move (move.verticesIndex);
-        elementsOffset  = std::move (move.elementsOffset);
-        elementCount    = std::move (move.elementCount);
+        verticesIndex       = move.verticesIndex;
+        elementsOffset      = std::move (move.elementsOffset);
+        elementCount        = move.elementCount;
+
+        // Reset primitives.
+        move.verticesIndex  = 0;
+        move.elementCount   = 0;
     }
 
     return *this;

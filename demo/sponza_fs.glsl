@@ -19,7 +19,7 @@ struct Light
     float   aConstant;              //!< The constant co-efficient for the attenutation formula.
     float   aLinear;                //!< The linear co-efficient for the attenuation formula.
     float   aQuadratic;             //!< The quadratic co-efficient for the attenuation formula.
-    int     emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces.
+    int     emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces. Use an int because booleans seem to be an issue for me with the UBO, due to the 128-bit alignment the memory requirements are the same regardless.
 };
 
 
@@ -42,8 +42,9 @@ layout (std140) uniform lighting
 };
 
 
-        uniform samplerBuffer   materialBuffer; //!< A texture buffer filled with the required diffuse and specular properties for the material.
-        uniform sampler2DArray  textureArray;   //!< The desired texture to apply to the particular pixel.
+layout (binding = 0)    uniform sampler2DArray  textures;       //!< The desired texture to apply to the particular pixel.
+layout (binding = 1)    uniform samplerBuffer   materials;      //!< A texture buffer filled with the required diffuse and specular properties for the material.
+layout (binding = 2)    uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
 
 
         in      vec3            worldPosition;  //!< The fragments position vector in world space.
@@ -151,12 +152,36 @@ void main()
 }
 
 
+int obtainMaterialID()
+{
+    // Each instance is allocated 4-bytes of data for the material ID. We calculate the row by dividing the instance ID
+    // by 4 and then the column by calculating the remainder.
+    ivec4 idRow = texelFetch (materialIDs, instanceID / 4);
+
+    switch (instanceID % 4)
+    {
+        case 0:
+            return idRow.r;
+
+        case 1:
+            return idRow.g;
+
+        case 2:
+            return idRow.b;
+
+        case 3:
+            return idRow.a;
+    }
+}
+
 void obtainMaterialProperties()
 {
     // We can use the instance ID to reconstruct the diffuse and specular colours from the RGBA material buffer.
-    // Each instanceID is allocated 16 bytes of data for the diffuse colour and 16 bytes for the specular colour.
-    vec4 diffusePart    = texelFetch (materialBuffer, instanceID * 2);
-    vec4 specularPart   = texelFetch (materialBuffer, instanceID * 2 + 1);
+    int materialID      = obtainMaterialID();    
+
+    // Each material is allocated 16 bytes of data for the diffuse colour and 16 bytes for the specular colour.
+    vec4 diffusePart    = texelFetch (materials, materialID);
+    vec4 specularPart   = texelFetch (materials, materialID + 1);
     
     // The RGB values of the diffuse part are the diffuse colour.
     material.diffuse    = diffusePart.rgb;
@@ -164,7 +189,7 @@ void obtainMaterialProperties()
     // The alpha of the diffuse part represents the texture to use for the ambient map. -1 == no texture.
     if (diffusePart.a >= 0.0)
     {
-        material.texture    = texture (textureArray, vec3 (texturePoint, diffusePart.a)).rgb;
+        material.texture    = texture (textures, vec3 (texturePoint, diffusePart.a)).rgb;
         material.ambientMap = material.texture;
     }
 

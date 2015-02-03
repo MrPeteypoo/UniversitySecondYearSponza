@@ -56,10 +56,6 @@ class MyView final : public tygra::WindowViewDelegate
 
     private:
 
-        struct Material;
-        struct Mesh;
-        class UniformData;
-
         #pragma region Scene construction
 
         /// <summary> Causes the object to initialise; loading and preparing all data. </summary>
@@ -133,26 +129,51 @@ class MyView final : public tygra::WindowViewDelegate
         #pragma endregion
 
         #pragma region Implementation data
-        
-        GLuint                                                  m_program           { 0 };          //!< The ID of the OpenGL program created and used to draw Sponza.
+
+        struct Material;
+        struct Mesh;
+        class UniformData;
+
+        // Using declarations.
+        using MaterialID = int;
+
+        /// <summary>
+        /// A simple structure which contains an ID for a VBO and a TBO, the TBO should be linked to the VBO for use in a sampler buffer.
+        /// </summary>
+        struct SamplerBuffer final
+        {
+            GLuint  vbo { 0 };  //!< The buffer to contain shader accessible information.
+            GLuint  tbo { 0 };  //!< The texture buffer which points to the VBO, linking them together.
+
+            SamplerBuffer()                                         = default;
+            SamplerBuffer (const SamplerBuffer& copy)               = default;
+            SamplerBuffer& operator= (const SamplerBuffer& copy)    = default;
+            ~SamplerBuffer()                                        = default;
+
+            SamplerBuffer (SamplerBuffer&& move);
+            SamplerBuffer& operator= (SamplerBuffer&& move);
+        };        
+
+        GLuint                                                  m_program           { 0 };          //!< The ID of the OpenGL program created and used to draw the scene.
 
         GLuint                                                  m_sceneVAO          { 0 };          //!< A Vertex Array Object for the entire scene.
         GLuint                                                  m_vertexVBO         { 0 };          //!< A Vertex Buffer Object which contains the interleaved vertex data of every mesh in the scene.
         GLuint                                                  m_elementVBO        { 0 };          //!< A Vertex Buffer Object with the elements data for every mesh in the scene.
+        
         GLuint                                                  m_uniformUBO        { 0 };          //!< A Uniform Buffer Object which contains scenes uniform data.
         
-        GLuint                                                  m_materialPool      { 0 };          //!< A pool of material diffuse and specular colours, used in instanced rendering.
-        GLuint                                                  m_matricesPool      { 0 };          //!< A pool of model and PVM matrices, used in instanced rendering.
-        size_t                                                  m_poolSize          { 0 };          //!< The current size of the pool, useful for optimising rendering.
-
-        GLuint                                                  m_materialTBO       { 0 };          //!< The materials texture buffer which points to the material pool buffer.
+        SamplerBuffer                                           m_materials         { };            //!< A VBO & TBO pair representing information on every material in the scene.
         GLuint                                                  m_textureArray      { 0 };          //!< The TEXTURE_2D_ARRAY which contains each texture in the scene.
+        
+        size_t                                                  m_instancePoolSize  { 0 };          //!< The current size of the instance pools, useful for optimising rendering.
+        SamplerBuffer                                           m_poolMaterialIDs   { };            //!< A pool of material IDs for each instance, used for accessing the instance-specific material.
+        GLuint                                                  m_poolTransforms    { 0 };          //!< A pool of model and PVM transformation matrices, used in instanced rendering.
         
         float                                                   m_aspectRatio       { 0.f };        //!< The calculated aspect ratio of the foreground resolution for the application.
 
         std::shared_ptr<const SceneModel::Context>              m_scene             { nullptr };    //!< The sponza scene containing instance and camera information.
         std::vector<std::pair<SceneModel::MeshId, Mesh*>>       m_meshes            { };            //!< A container of MeshId and Mesh pairs, used in instance-based rendering of meshes in the scene.
-        std::unordered_map<SceneModel::MaterialId, Material*>   m_materials         { };            //!< A map containing each material used for rendering.
+        std::unordered_map<SceneModel::MaterialId, MaterialID>  m_materialIDs      { };             //!< A map containing each material used for rendering.
 
         bool                                                    m_wireframeMode     { false };      //!< Causes the camera to show a wireframe around meshes nearby.
 

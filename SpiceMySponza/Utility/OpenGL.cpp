@@ -14,16 +14,16 @@
 
 
 // Personal headers.
-#include <Misc/Vertex.h>
+#include <MyView/Material.h>
 
 
 
 namespace util
 {
     #pragma region Template instantiations
-
-    template void fillBuffer (GLuint& vbo, const std::vector<unsigned int>& data, const GLenum target, const GLenum usage);
-    template void fillBuffer (GLuint& vbo, const std::vector<Vertex>& data, const GLenum target, const GLenum usage);
+    
+    // Instant the different required templates to avoid including OpenGL in the header.
+    template void fillBuffer (GLuint& vbo, const std::vector<MyView::Material>& data, const GLenum target, const GLenum usage);
 
     #pragma endregion
 
