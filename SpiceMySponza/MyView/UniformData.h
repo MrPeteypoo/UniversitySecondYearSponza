@@ -48,7 +48,7 @@ struct Light final
     float       coneAngle       { 90.f };   //!< The cone angle for spot lights.
 
     glm::vec3   colour          { 1.f };    //!< The un-attenuated colour of the light.
-    float       concentration   { 7.f };    //!< How concentrated beam of a spot light is.
+    float       concentration   { 2.f };    //!< How concentrated the beam of a spot light is.
 
     float       aConstant       { 1.f };    //!< The constant co-efficient for the attenutation formula.
     float       aLinear         { 0.f };    //!< The linear co-efficient for the attenutation formula.

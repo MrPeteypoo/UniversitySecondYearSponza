@@ -70,16 +70,16 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V);
 
 /// <summary> Calculates the attenuation value of a point light based on the given distance. </summary>
 /// <param name="light"> The light to obtain attenuation information from. </param>
-/// <param name="distance"> The distance of the fragment from the light. </param>
+/// <param name="dist"> The distance of the fragment from the light. </param>
 /// <returns> An attenuation value ranging from 0 to 1. </returns>
-float pointLightAttenuation (const Light light, const float distance);
+float pointLightAttenuation (const Light light, const float dist);
 
 /// <summary> Calculates the luminance attenuation value of a spot light based on the given distance. </summary>
 /// <param name="light"> The light to obtain attenuation information from. </param>
 /// <param name="L"> The surface-to-light unit direction vector required for the attenuation formula. </param>
-/// <param name="distance"> The distance of the fragment from the light. </param>
+/// <param name="dist"> The distance of the fragment from the light. </param>
 /// <returns> An attenuation value ranging from 0 to 1. </returns>
-float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float distance);
+float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float dist);
 
 /// <summary> Calculates the cone attenuation value of a spot light using angle information of a given light. </summary>
 /// <param name="light"> The light to obtain directional and angular information from. </param>
@@ -215,8 +215,8 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
     vec3 lighting   = vec3 (0.0);
 
     // Calculate L and the lambertian value to check if we need to actually add anything.
-    float distance  = length (light.positionType.xyz - Q);
-    vec3 L          = (light.positionType.xyz - Q) / distance;
+    float dist      = length (light.positionType.xyz - Q);
+    vec3 L          = (light.positionType.xyz - Q) / dist;
 
     // If the lambertian is zero we don't need to add any lighting.
     float lambertian = max (dot (L, N), 0);
@@ -231,12 +231,12 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
         {
             // Point light.
             case 0:
-                attenuation *= pointLightAttenuation (light, distance);
+                attenuation *= pointLightAttenuation (light, dist);
                 break;
 
             // Spot light.
             case 1:
-                attenuation *= spotLightLuminanceAttenuation (light, L, distance);
+                attenuation *= spotLightLuminanceAttenuation (light, L, dist);
                 attenuation *= spotLightConeAttenuation (light, L);
                 break;
 
@@ -244,28 +244,31 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
             default:
                 break;
         }
-		
-		// Booleans don't seem to translate to the UBO accurately.
-		if (light.emitWireframe != 1)
-		{
-			// Calculate the final colour of the light. 
-			vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
+        
+        if (attenuation > 0.0)
+        {		
+            // Booleans don't seem to translate to the UBO accurately.
+            if (light.emitWireframe != 1)
+            {
+                // Calculate the final colour of the light. 
+                vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
 
-			// Increase the lighting to apply to the current fragment.
-			lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
-		}
+                // Increase the lighting to apply to the current fragment.
+                lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
+            }
 
-		// Enable the wireframe view!
-		else
-		{
-			// The materials should look emissive by using a bright white, unattenuated light.
-			vec3 emissiveLighting	= calculateLighting (L, N, V, vec3 (0.5), lambertian);
-			
-			// Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
-			// really smooth transition between the standard Phong shading and the wireframe emissive shading!
-			const vec3 wireColour	= vec3 (1.0, 1.0, 1.0);
-			lighting += (emissiveLighting + wireframe (wireColour)) * smoothstep (0.0, 1.0, attenuation);
-		}
+            // Enable the wireframe view!
+            else
+            {
+                // The materials should look emissive by using a bright white, unattenuated light.
+                vec3 emissiveLighting	= calculateLighting (L, N, V, vec3 (0.5), lambertian);
+                
+                // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
+                // really smooth transition between the standard Phong shading and the wireframe emissive shading!
+                const vec3 wireColour	= vec3 (1.0, 1.0, 1.0);
+                lighting += (emissiveLighting + wireframe (wireColour)) * smoothstep (0.0, 1.0, attenuation);
+            }
+        }
     }
 
     // Return the accumulated lighting.
@@ -273,23 +276,23 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
 }
 
 
-float pointLightAttenuation (const Light light, const float distance)
+float pointLightAttenuation (const Light light, const float dist)
 {
     // We need to construct Ci *= 1 / (Kc + Kl * d + Kq * d * d).
-    float attenuation = 1.0 / (light.aConstant + light.aLinear * distance + light.aQuadratic * distance * distance);
+    float attenuation = 1.0 / (light.aConstant + light.aLinear * dist + light.aQuadratic * dist * dist);
 
     return attenuation;    
 }
 
 
-float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float distance)
+float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float dist)
 {    
     // We need to construct Ci *= (pow (max {-R.L, 0}), p) / (Kc + kl * d + Kq * d * d).
     float lighting      = max (dot (-light.directionAngle.xyz, L), 0);
 
     float numerator     = pow (lighting, light.colourConcentration.a);
 
-    float denominator   = light.aConstant + light.aLinear * distance + light.aQuadratic * distance * distance;
+    float denominator   = light.aConstant + light.aLinear * dist + light.aQuadratic * dist * dist;
     
     // Return the final calculation.
     return numerator / denominator;
@@ -300,13 +303,13 @@ float spotLightConeAttenuation (const Light light, const vec3 L)
 {
     // Cone attenuation is: fs := (S.D) > cos (c). S = light to surface direction, D = light direction.
     const vec3 surface  = -L;
-    float coneFactor    = max (dot (surface, light.directionAngle.xyz), 0);
+    float coneAngle     = degrees (acos (max (dot (surface, light.directionAngle.xyz), 0)));
 
     // Determine the cosine of the half angle.
-    float halfAngle     = cos (light.directionAngle.w / 2);
+    float halfAngle     = light.directionAngle.w / 2;
 
     // Attenuate using smoothstep.
-    float attenuation   = coneFactor >= halfAngle ? smoothstep (0.0, 0.5, (coneFactor - halfAngle) / halfAngle) : 0.0;
+    float attenuation   = coneAngle <= halfAngle ? smoothstep (1.0, 0.5, coneAngle / halfAngle) : 0;
     
     // Return the calculated attenuation factor.
     return attenuation;
@@ -337,6 +340,7 @@ vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 col
 
     return colour * (diffuseLighting + specularLighting);
 }
+
 
 vec3 wireframe (const vec3 wireColour)
 {

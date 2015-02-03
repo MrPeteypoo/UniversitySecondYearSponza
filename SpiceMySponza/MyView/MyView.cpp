@@ -657,7 +657,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
     glBindTexture (GL_TEXTURE_BUFFER, 0);
 
     glActiveTexture (GL_TEXTURE0);
-    glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
+    //glBindTexture (GL_TEXTURE_2D_ARRAY, 0);
 }
 
 
