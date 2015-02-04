@@ -27,18 +27,18 @@ Light& Light::operator= (Light&& move)
     {
         // Move all data across.
         position        = std::move (move.position);
-        type            = std::move (move.type);
+        type            = move.type;
 
         direction       = std::move (move.direction);
-        coneAngle       = std::move (move.coneAngle);
+        coneAngle       = move.coneAngle;
 
         colour          = std::move (move.colour);
-        concentration   = std::move (move.concentration);
+        concentration   = move.concentration;
 
-        aConstant       = std::move (move.aConstant);
-        aLinear         = std::move (move.aLinear);
-        aQuadratic      = std::move (move.aQuadratic);
-        emitWireframe   = std::move (move.emitWireframe);
+        aConstant       = move.aConstant;
+        aLinear         = move.aLinear;
+        aQuadratic      = move.aQuadratic;
+        emitWireframe   = move.emitWireframe;
 
         // Reset standard data type.
         move.setType (LightType::Point);

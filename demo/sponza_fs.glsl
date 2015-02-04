@@ -20,7 +20,7 @@ struct Light
     float   aConstant;              //!< The constant co-efficient for the attenutation formula.
     float   aLinear;                //!< The linear co-efficient for the attenuation formula.
     float   aQuadratic;             //!< The quadratic co-efficient for the attenuation formula.
-    int     emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces. Use an int because booleans seem to be an issue for me with the UBO, due to the 128-bit alignment the memory requirements are the same regardless.
+    bool    emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces.
 };
 
 
@@ -43,18 +43,18 @@ layout (std140) uniform lighting
 };
 
 
-                        uniform sampler2DArray  textures;       //!< The desired texture to apply to the particular pixel.
-                        uniform samplerBuffer   materials;      //!< A texture buffer filled with the required diffuse and specular properties for the material.
-                        uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
+        uniform sampler2DArray  textures;       //!< The desired texture to apply to the particular pixel.
+        uniform samplerBuffer   materials;      //!< A texture buffer filled with the required diffuse and specular properties for the material.
+        uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
 
-                        in      vec3            worldPosition;  //!< The fragments position vector in world space.
-                        in      vec3            worldNormal;    //!< The fragments normal vector in world space.
-                        in      vec3            baryPoint;      //!< The barycentric co-ordinate of the current fragment, useful for wireframe rendering.
-                        in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
-flat                    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
+        in      vec3            worldPosition;  //!< The fragments position vector in world space.
+        in      vec3            worldNormal;    //!< The fragments normal vector in world space.
+        in      vec3            baryPoint;      //!< The barycentric co-ordinate of the current fragment, useful for wireframe rendering.
+        in      vec2            texturePoint;   //!< The interpolated co-ordinate to use for the texture sampler.
+flat    in      int             instanceID;     //!< Used in fetching instance-specific data from the uniforms.
 
 
-                        out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
+        out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
 
 
 /// <summary> Updates the ambient, diffuse and specular colours from the materialTBO for this fragment. </summary>
@@ -248,7 +248,7 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
         if (attenuation > 0.0)
         {		
             // Booleans don't seem to translate to the UBO accurately.
-            if (light.emitWireframe != 1)
+            if (!light.emitWireframe)
             {
                 // Calculate the final colour of the light. 
                 vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
