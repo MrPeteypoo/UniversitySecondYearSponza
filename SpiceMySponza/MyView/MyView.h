@@ -56,7 +56,7 @@ class MyView final : public tygra::WindowViewDelegate
         void toggleWireframeMode()  { m_wireframeMode = !m_wireframeMode; }
 
         /// <summary> Cycles through point, spot and directional wireframe mode. </summary>
-        void toggleWireframeType()  { ++m_wireframeType; }
+        void toggleWireframeType()  { m_wireframeType = ++m_wireframeType % 3; }
 
         #pragma endregion
 

@@ -46,24 +46,24 @@ MyView& MyView::operator= (MyView&& move)
 {
     if (this != &move)
     {
-        m_program           = move.m_program;
+        m_program               = move.m_program;
 
-        m_sceneVAO          = move.m_sceneVAO;
-        m_vertexVBO         = move.m_vertexVBO;
-        m_elementVBO        = move.m_elementVBO;
-        m_uniformUBO        = move.m_uniformUBO;
-        m_textureArray      = move.m_textureArray;
-        m_materials         = std::move (move.m_materials);
+        m_sceneVAO              = move.m_sceneVAO;
+        m_vertexVBO             = move.m_vertexVBO;
+        m_elementVBO            = move.m_elementVBO;
+        m_uniformUBO            = move.m_uniformUBO;
+        m_textureArray          = move.m_textureArray;
+        m_materials             = std::move (move.m_materials);
         
-        m_instancePoolSize  = move.m_instancePoolSize;
-        m_poolTransforms    = move.m_poolTransforms;
-        m_poolMaterialIDs   = std::move (move.m_poolMaterialIDs);
+        m_instancePoolSize      = move.m_instancePoolSize;
+        m_poolTransforms        = move.m_poolTransforms;
+        m_poolMaterialIDs       = std::move (move.m_poolMaterialIDs);
         
-        m_aspectRatio       = move.m_aspectRatio;
+        m_aspectRatio           = move.m_aspectRatio;
 
-        m_scene             = std::move (move.m_scene);
-        m_meshes            = std::move (move.m_meshes);
-        m_materials         = std::move (move.m_materials);
+        m_scene                 = std::move (move.m_scene);
+        m_meshes                = std::move (move.m_meshes);
+        m_materials             = std::move (move.m_materials);
 
         // Reset primitives.
         move.m_program          = 0;
@@ -712,8 +712,8 @@ void MyView::setUniforms (const void* const projectionMatrix, const void* const 
     glUniform1i (materials, 1);
     glUniform1i (materialIDs, 2);
 
-    // Create data to fill.
-    UniformData data { };
+    // Create data to fill. Avoid creating it every time by using static.
+    static UniformData data { };
 
     // Obtain the correct data for the uniforms. We'll need to cast the pointers, this is dirty but it prevents calculating the matrices twice
     // or including GLM in the MyView header.
@@ -769,7 +769,7 @@ Light MyView::createWireframeLight() const
     wireframe.aQuadratic    = 0.002f;
 
     // Enable the wireframe and we're done! We only have three modes so use the currently selected.
-    const LightType type    = static_cast<LightType> (m_wireframeType % 3);
+    const LightType type    = static_cast<LightType> (m_wireframeType);
 
     wireframe.emitWireframe = 1;
     wireframe.setType (type);

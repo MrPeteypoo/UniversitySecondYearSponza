@@ -13,14 +13,19 @@
 /// </summary>
 struct Light
 {
-    vec4    positionType;           //!< The world position of the light in the scene. Alpha is the type of light; 0 means point light, 1 means spot light and 2 means directional light.
-    vec4    directionAngle;         //!< The direction of the light. Alpha is the angle of the light in degrees.
-    vec4    colourConcentration;    //!< The un-attenuated colour of the light. Alpha is the concentration of the light beam.
+    vec3    position;       //!< The world position of the light in the scene.
+    float   type;           //!< The type of lighting algorithm to use. 0 means point light, 1 means spot light and 2 means directional light.
+    
+    vec3    direction;      //!< The direction of the light.
+    float   coneAngle;      //!< The angle of the light in degrees.
+    
+    vec3    colour;         //!< The un-attenuated colour of the light. 
+    float   concentration;  //!< How concentrated spot lights are, this effects distance attenuation.
 
-    float   aConstant;              //!< The constant co-efficient for the attenutation formula.
-    float   aLinear;                //!< The linear co-efficient for the attenuation formula.
-    float   aQuadratic;             //!< The quadratic co-efficient for the attenuation formula.
-    bool    emitWireframe;          //!< Determines whether the light should emit a wireframe onto surfaces.
+    float   aConstant;      //!< The constant co-efficient for the attenutation formula.
+    float   aLinear;        //!< The linear co-efficient for the attenuation formula.
+    float   aQuadratic;     //!< The quadratic co-efficient for the attenuation formula.
+    bool    emitWireframe;  //!< Determines whether the light should emit a wireframe onto surfaces.
 };
 
 
@@ -215,8 +220,8 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
     vec3 lighting   = vec3 (0.0);
 
     // Calculate L and the lambertian value to check if we need to actually add anything.
-    float dist      = length (light.positionType.xyz - Q);
-    vec3 L          = (light.positionType.xyz - Q) / dist;
+    float dist      = length (light.position - Q);
+    vec3 L          = (light.position - Q) / dist;
 
     // If the lambertian is zero we don't need to add any lighting.
     float lambertian = max (dot (L, N), 0);
@@ -227,7 +232,7 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
         float attenuation = 1.0;
 
         // For the light type 0 means point, 1 means spot and 2 means directional.
-        switch (int (light.positionType.w))
+        switch (int (light.type))
         {
             // Point light.
             case 0:
@@ -251,7 +256,7 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
             if (!light.emitWireframe)
             {
                 // Calculate the final colour of the light. 
-                vec3 attenuatedColour = light.colourConcentration.rgb * attenuation;
+                vec3 attenuatedColour = light.colour * attenuation;
 
                 // Increase the lighting to apply to the current fragment.
                 lighting += calculateLighting (L, N, V, attenuatedColour, lambertian);
@@ -288,9 +293,9 @@ float pointLightAttenuation (const Light light, const float dist)
 float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float dist)
 {    
     // We need to construct Ci *= (pow (max {-R.L, 0}), p) / (Kc + kl * d + Kq * d * d).
-    float lighting      = max (dot (-light.directionAngle.xyz, L), 0);
+    float lighting      = max (dot (-light.direction, L), 0);
 
-    float numerator     = pow (lighting, light.colourConcentration.a);
+    float numerator     = pow (lighting, light.concentration);
 
     float denominator   = light.aConstant + light.aLinear * dist + light.aQuadratic * dist * dist;
     
@@ -303,13 +308,13 @@ float spotLightConeAttenuation (const Light light, const vec3 L)
 {
     // Cone attenuation is: fs := (S.D) > cos (c). S = light to surface direction, D = light direction.
     const vec3 surface  = -L;
-    float coneAngle     = degrees (acos (max (dot (surface, light.directionAngle.xyz), 0)));
+    float lightAngle    = degrees (acos (max (dot (surface, light.direction), 0)));
 
     // Determine the cosine of the half angle.
-    float halfAngle     = light.directionAngle.w / 2;
+    float halfAngle     = light.coneAngle / 2;
 
     // Attenuate using smoothstep.
-    float attenuation   = coneAngle <= halfAngle ? smoothstep (1.0, 0.5, coneAngle / halfAngle) : 0;
+    float attenuation   = lightAngle <= halfAngle ? smoothstep (1.0, 0.5, lightAngle / halfAngle) : 0;
     
     // Return the calculated attenuation factor.
     return attenuation;
