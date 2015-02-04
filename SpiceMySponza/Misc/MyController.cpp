@@ -106,7 +106,7 @@ windowControlKeyboardChanged(std::shared_ptr<tygra::Window> window,
     case 'R':
         if (down)
         {
-            view_->rebuildScene();
+            view_->rebuildShaders();
         }
         break;
     case tygra::kWindowKeySpace:

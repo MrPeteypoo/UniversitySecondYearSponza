@@ -117,11 +117,13 @@ void MyView::setScene (std::shared_ptr<const SceneModel::Context> scene)
 }
 
 
-void MyView::rebuildScene()
+void MyView::rebuildShaders()
 {
-    // Rebuild the entire scene bruv!
-    windowViewDidStop (nullptr);
-    windowViewWillStart (nullptr);
+    // We should be able to simply delete our current program, rebuild it and reset the VAO.
+    glDeleteProgram (m_program);
+
+    buildProgram();
+    constructVAO();
 }
 
 #pragma endregion
@@ -139,10 +141,7 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
     glClearColor (0.f, 0.1f, 0.f, 0.f);
     
     // Attempt to build the program, if it fails the user can reload after correcting any syntax errors.
-    if (buildProgram())
-    {
-        std::cout << "OpenGL application built successfully." << std::endl;
-    }
+    buildProgram();
 
     // Generate the buffers.
     generateOpenGLObjects();
@@ -155,6 +154,9 @@ void MyView::windowViewWillStart (std::shared_ptr<tygra::Window> window)
 
     // Ensure we have the required materials.
     buildMaterialData();
+
+    // Prepare the UBO for usage.
+    bindUniformBufferObject();
 
     // Now we can construct the VAO so we're reading for rendering.
     constructVAO();
@@ -181,7 +183,13 @@ bool MyView::buildProgram()
     util::attachShader (m_program, fragmentShader, fragmentAttributes);
 
     // Link the program
-    return util::linkProgram (m_program);
+    if (util::linkProgram (m_program))
+    {
+        std::cout << "OpenGL application built successfully." << std::endl;
+        return true;
+    }
+
+    return false;
 }
 
 
@@ -280,6 +288,34 @@ void MyView::allocateExtraBuffers()
 
     // The material ID pool contains the instance-specific material ID required for correct shading.
     util::allocateBuffer (m_poolMaterialIDs.vbo, materialIDSize, GL_TEXTURE_BUFFER, GL_STREAM_DRAW);
+}
+
+
+void MyView::bindUniformBufferObject()
+{
+    /// This part here may be confusing. There is only one Uniform Buffer Object in MyView and we use the UniformData class to manage how that 
+    /// data is managed by the shaders. Although all of the data is maintained in the class itself, we split it into "scene" and "lighting"
+    /// segments. We point the binding blocks to the correct parts of the UBO using the information UniformData gives us.
+    ///
+    /// I would rather UniformData had a Scene and Lighting class which meant the size and offset calculations were less brittle but that's for
+    /// another day.
+
+    glBindBuffer (GL_UNIFORM_BUFFER, m_uniformUBO);
+
+    // Determine the UBO indices.
+    const auto scene = glGetUniformBlockIndex (m_program, "scene");
+    const auto lighting = glGetUniformBlockIndex (m_program, "lighting");
+
+    // Bind each part of the UBO to the correct block.
+    glUniformBlockBinding (m_program, scene, UniformData::sceneBlock());
+    glUniformBlockBinding (m_program, lighting, UniformData::lightingBlock());
+
+    // Use the magic data contained in UniformData to separate the UBO into segments.
+    glBindBufferRange (GL_UNIFORM_BUFFER, UniformData::sceneBlock(),    m_uniformUBO, UniformData::sceneOffset(),    UniformData::sceneSize());
+    glBindBufferRange (GL_UNIFORM_BUFFER, UniformData::lightingBlock(), m_uniformUBO, UniformData::lightingOffset(), UniformData::lightingSize());
+
+    // Unbind the buffer.
+    glBindBuffer (GL_UNIFORM_BUFFER, 0);
 }
 
 
@@ -663,7 +699,7 @@ void MyView::windowViewRender (std::shared_ptr<tygra::Window> window)
 
 void MyView::setUniforms (const void* const projectionMatrix, const void* const viewMatrix)
 {
-    //// Fix the stupid lab computers not liking how I don't specify the texture unit and how I like using both on texture unit 0.
+    // Fix the stupid lab computers not liking how I don't specify the texture unit and how I like using both on texture unit 0.
     const auto textures     = glGetUniformLocation (m_program, "textures");
     const auto materials    = glGetUniformLocation (m_program, "materials");
     const auto materialIDs  = glGetUniformLocation (m_program, "materialIDs");
@@ -712,26 +748,7 @@ void MyView::setUniforms (const void* const projectionMatrix, const void* const 
     glBindBuffer (GL_UNIFORM_BUFFER, m_uniformUBO);
     glBufferSubData (GL_UNIFORM_BUFFER, 0, sizeof (UniformData), &data);
 
-    /// This part here may be confusing. There is only one Uniform Buffer Object in MyView and we use the UniformData class to manage how that 
-    /// data is managed by the shaders. Although all of the data is maintained in the class itself, we split it into "scene" and "lighting"
-    /// segments. We point the binding blocks to the correct parts of the UBO using the information UniformData gives us.
-    ///
-    /// I would rather UniformData had a Scene and Lighting class which meant the size and offset calculations were less brittle but that's for
-    /// another day.
-
-    // Determine the UBO indices.
-    const auto scene = glGetUniformBlockIndex (m_program, "scene");
-    const auto lighting = glGetUniformBlockIndex (m_program, "lighting");
-
-    // Bind each part of the UBO to the correct block.
-    glUniformBlockBinding (m_program, scene, data.sceneBlock());
-    glUniformBlockBinding (m_program, lighting, data.lightingBlock());
-
-    // Use the magic data contained in UniformData to separate the UBO into segments.
-    glBindBufferRange (GL_UNIFORM_BUFFER, data.sceneBlock(), m_uniformUBO, data.sceneOffset(), data.sceneSize());
-    glBindBufferRange (GL_UNIFORM_BUFFER, data.lightingBlock(), m_uniformUBO, data.lightingOffset(), data.lightingSize());
-
-    // Unbind the buffer.
+    // Unbind it since for safety.
     glBindBuffer (GL_UNIFORM_BUFFER, 0);
 }
 

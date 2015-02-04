@@ -49,8 +49,8 @@ class MyView final : public tygra::WindowViewDelegate
         /// <summary> Sets the SceneModel::Context to use for rendering. </summary>
         void setScene (std::shared_ptr<const SceneModel::Context> scene);
 
-        /// <summary> Causes the application to rebuild the entire scene. </summary>
-        void rebuildScene();
+        /// <summary> Causes the application to rebuild the shaders. </summary>
+        void rebuildShaders();
 
         /// <summary> Enables a wireframe view near the camera. </summary>
         void toggleWireframeMode()  { m_wireframeMode = !m_wireframeMode; }
@@ -85,6 +85,9 @@ class MyView final : public tygra::WindowViewDelegate
 
         /// <summary> This will allocate enough memory in m_uniformVBO, m_materialPool and m_matricesPool for modification at run-time. </summary>
         void allocateExtraBuffers();
+
+        /// <summary> Sets up the binding of the Uniform Buffer Object used for the scene and lighting. </summary>
+        void bindUniformBufferObject();
 
         /// <summary> Prepares the material TBO and allocates storage for the texture array. </summary>
         /// <param name="textureWidth"> The width each texture should be in the array. </param>
