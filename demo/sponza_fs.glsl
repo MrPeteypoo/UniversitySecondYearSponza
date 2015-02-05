@@ -140,6 +140,10 @@ void main()
 
 int obtainMaterialID()
 {
+    /// This really isn't a nice way to do this, in future I will avoid this and just make the material ID an instance-specific 
+    /// vertex attribute. However the alternative method is used here which features a samplerBuffer object and we then obtain
+    /// the correct attribute using texelFetch().
+
     // Each instance is allocated 4-bytes of data for the material ID. We calculate the row by dividing the instance ID
     // by 4 and then the column by calculating the remainder.
     ivec4 idRow = texelFetch (materialIDs, instanceID / 4);
@@ -163,7 +167,7 @@ int obtainMaterialID()
 void obtainMaterialProperties()
 {
     // We can use the instance ID to reconstruct the diffuse and specular colours from the RGBA material buffer.
-    int materialID      = obtainMaterialID();    
+    int materialID      = obtainMaterialID();
 
     // Each material is allocated 16 bytes of data for the diffuse colour and 16 bytes for the specular colour.
     vec4 diffusePart    = texelFetch (materials, materialID);
@@ -245,13 +249,9 @@ vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V)
             // Enable the wireframe view!
             else
             {
-                // The materials should look emissive by using a bright white, unattenuated light.
-                vec3 emissiveLighting	= calculateLighting (L, N, V, vec3 (0.5), lambertian);
-                
-                // Blend the wireframe and emissive light together and smoothstep with the calculated attenuation. This creates a
-                // really smooth transition between the standard Phong shading and the wireframe emissive shading!
-                const vec3 wireColour	= vec3 (1.0, 1.0, 1.0);
-                lighting += (emissiveLighting + wireframe (wireColour)) * smoothstep (0.0, 1.0, attenuation);
+                // Create the wireframe and smoothstep with the calculated attenuation. This creates a really 
+				// smooth transition between the standard Phong shading and the wireframe emissive shading!
+                lighting += wireframe (light.colour) * smoothstep (0.0, 1.0, attenuation);
             }
         }
     }
@@ -294,7 +294,7 @@ float spotLightConeAttenuation (const Light light, const vec3 L)
     float halfAngle     = light.coneAngle / 2;
 
     // Attenuate using smoothstep. Don't cut off at zero, maintains spotlight look.
-    float attenuation   = lightAngle <= halfAngle ? smoothstep (1.0, 0.5, lightAngle / halfAngle) : 0;
+    float attenuation   = lightAngle <= halfAngle ? smoothstep (1.0, 0.75, lightAngle / halfAngle) : 0;
     
     // Return the calculated attenuation factor.
     return attenuation;
