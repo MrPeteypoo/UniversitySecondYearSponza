@@ -123,6 +123,7 @@ void MyView::rebuildShaders()
     glDeleteProgram (m_program);
 
     buildProgram();
+    bindUniformBufferObject();
     constructVAO();
 }
 

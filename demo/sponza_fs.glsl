@@ -42,9 +42,9 @@ layout (std140) uniform lighting
 };
 
 
-        uniform sampler2DArray  textures;       //!< The desired texture to apply to the particular pixel.
+        uniform sampler2DArray  textures;       //!< The array of textures in the scene.
         uniform samplerBuffer   materials;      //!< A texture buffer filled with the required diffuse and specular properties for the material.
-        uniform isamplerBuffer  materialIDs;    //!< The ID containing the location of the material for the instance to fetch from the materials buffer.
+        uniform isamplerBuffer  materialIDs;    //!< A buffer containing the ID of the material for the instance to fetch from the materials buffer.
 
         in      vec3            worldPosition;  //!< The fragments position vector in world space.
         in      vec3            worldNormal;    //!< The fragments normal vector in world space.
