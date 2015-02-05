@@ -1,16 +1,10 @@
-/// <summary> The fragment shader used in SpiceMy Sponza. The shader implements the Phong reflection model. </summary>
-/// <namespace> GLSL </namespace>
-/// <class> Fragment </class>
-
 #version 330
 
 #define MAX_LIGHTS 20
 
 
-/// <summary>
 /// A structure containing information regarding to a light source in the scene. Because of the std140 layout rules of being 128-bit aligned
 /// we need to be creative and combine vec3's with an additional attribute to save memory.
-/// </summary>
 struct Light
 {
     vec3    position;       //!< The world position of the light in the scene.
@@ -29,7 +23,7 @@ struct Light
 };
 
 
-/// <summary> The uniform buffer scene specific information. </summary>
+/// The uniform buffer scene specific information.
 layout (std140) uniform scene
 {
     mat4    projection;     //!< The projection transform which establishes the perspective of the vertex.
@@ -40,7 +34,7 @@ layout (std140) uniform scene
 };
 
 
-/// <summary> The uniform buffer containing lighting data. </summary>
+/// The uniform buffer containing lighting data.
 layout (std140) uniform lighting
 {
     int     numLights;			//!< The number of lights in currently in use.
@@ -62,51 +56,37 @@ flat    in      int             instanceID;     //!< Used in fetching instance-s
         out     vec4            fragmentColour; //!< The computed output colour of this particular pixel;
 
 
-/// <summary> Updates the ambient, diffuse and specular colours from the materialTBO for this fragment. </summary>
+/// Updates the ambient, diffuse and specular colours from the materialTBO for this fragment.
 void obtainMaterialProperties();
 
-/// <summary> Calculates the lighting from a given light. </summary>
-/// <param name="light"> The light to use for the calculations. </param>
-/// <param name="Q"> The world position of the surface. </param>
-/// <param name="N"> The world normal direction of the surface. </param>
-/// <param name="V"> The direction of the surface to the viewer. </param>
-/// <returns> Attenuated lighting calculated by the material and light properties. </returns>
+/// Calculates the lighting from a given light. Q should be the world position of the surface. N should be the world normal direction of the surface.
+/// V should be the direction of the surface to the viewer.
+/// Returns the attenuated lighting calculated by the material and light properties.
 vec3 processLight (const Light light, const vec3 Q, const vec3 N, const vec3 V);
 
-/// <summary> Calculates the attenuation value of a point light based on the given distance. </summary>
-/// <param name="light"> The light to obtain attenuation information from. </param>
-/// <param name="dist"> The distance of the fragment from the light. </param>
-/// <returns> An attenuation value ranging from 0 to 1. </returns>
+/// Calculates the attenuation value of a point light based on the given distance. The distance of the fragment from the light is represented by dist.
+/// Returns an attenuation value ranging from 0 to 1.
 float pointLightAttenuation (const Light light, const float dist);
 
-/// <summary> Calculates the luminance attenuation value of a spot light based on the given distance. </summary>
-/// <param name="light"> The light to obtain attenuation information from. </param>
-/// <param name="L"> The surface-to-light unit direction vector required for the attenuation formula. </param>
-/// <param name="dist"> The distance of the fragment from the light. </param>
-/// <returns> An attenuation value ranging from 0 to 1. </returns>
+/// Calculates the luminance attenuation value of a spot light based on the given distance. L is the surface-to-light unit direction vector.
+/// The distance of the fragment from the light is represented by dist.
+/// Returns an attenuation value ranging from 0 to 1.
 float spotLightLuminanceAttenuation (const Light light, const vec3 L, const float dist);
 
-/// <summary> Calculates the cone attenuation value of a spot light using angle information of a given light. </summary>
-/// <param name="light"> The light to obtain directional and angular information from. </param>
-/// <param name="L"> The surface-to-light unit direction vector required for the attenuation formula. </param>
-/// <returns> An attenuation value ranging from 0 to 1. </returns>
+/// Calculates the cone attenuation value of a spot light using angle information of a given light. L is the s
+/// Returns an attenuation value ranging from 0 to 1.
 float spotLightConeAttenuation (const Light light, const vec3 L);
 
-/// <summary> Calculates the diffuse and specular lighting to be applied based on the given colour. </summary>
-/// <param name="L"> The direction pointing from the surface to the light. </param>
-/// <param name="N"> The normal pointing away from the surface. </param>
-/// <param name="V"> The direction pointing from the surface to the viewer. </param>
-/// <param name="colour"> The colour to modify the lighting with. </param>
-/// <param name="lambertian"> The luminance value to apply to the diffuse colour. </param>
-/// <returns> The calculated diffuse and specular lighting with the given colour applied. </returns>
+/// Calculates the diffuse and specular lighting to be applied based on the given colour. L is the surface-to-light unit direction vector.
+/// N should be the world normal direction of the surface. V is the surface-to-view unit direction vector. The luminance of the lighting
+/// is represented by the lambertian value.
+/// Returns the calculated diffuse and specular lighting with the given colour applied.
 vec3 calculateLighting (const vec3 L, const vec3 N, const vec3 V, const vec3 colour, const float lambertian);
 
-/// <summary> 
+
 /// Using interpolated barycentric co-ordinates passed through by the vertex shader this function calculates the wireframe
-/// colour of the current fragment.
-/// </summary>
-/// <param name="wireColour"> The base colour for the wireframe. </param>
-/// <returns> A white colour to represent a line on the wireframe, black the fragment isn't part of a line. </returns>
+/// colour of the current fragment. The base colour of the wireframe is specified with wireColour.
+/// Returns a colour intensity to represent a line on the wireframe, black if the fragment isn't part of a line.
 vec3 wireframe (const vec3 wireColour);
 
 
@@ -120,14 +100,14 @@ vec3 wireframe (const vec3 wireColour);
 // Rn.V = Dot product of the reflected light direction from the normal and the direction to the viewer.
 // p    = The specular shininess factor.
 
-/// <summary> Contains the properties of the material to be applied to the current fragment. </summary>
+/// Contains the properties of the material to be applied to the current fragment.
 struct Material
 {
-    vec3 ambientMap;
-    vec3 texture;
-    vec3 diffuse;
-    vec3 specular;
-    float shininess;
+    vec3 ambientMap;    //!< The ambient colour to apply to the fragment.
+    vec3 texture;       //!< The texture colour, if any to apply.
+    vec3 diffuse;       //!< The standard diffuse colour.
+    vec3 specular;      //!< The specular colour.
+    float shininess;    //!< How shiny the surface is.
 } material;
 
 
@@ -306,14 +286,14 @@ float spotLightLuminanceAttenuation (const Light light, const vec3 L, const floa
 
 float spotLightConeAttenuation (const Light light, const vec3 L)
 {
-    // Cone attenuation is: fs := (S.D) > cos (c). S = light to surface direction, D = light direction.
+    // Cone attenuation is: fs := aocs ((S.D)) > angle / 2. S = light to surface direction, D = light direction.
     const vec3 surface  = -L;
     float lightAngle    = degrees (acos (max (dot (surface, light.direction), 0)));
 
-    // Determine the cosine of the half angle.
+    // Determine the half angle.
     float halfAngle     = light.coneAngle / 2;
 
-    // Attenuate using smoothstep.
+    // Attenuate using smoothstep. Don't cut off at zero, maintains spotlight look.
     float attenuation   = lightAngle <= halfAngle ? smoothstep (1.0, 0.5, lightAngle / halfAngle) : 0;
     
     // Return the calculated attenuation factor.

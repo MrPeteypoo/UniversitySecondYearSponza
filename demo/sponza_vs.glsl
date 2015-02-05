@@ -1,11 +1,7 @@
-/// <summary> The vertex shader used in Spice My Sponza. Prepares the information required for the fragment shader. </summary>
-/// <namespace> GLSL </namespace>
-/// <class> Vertex </class>
-
 #version 330
 
 
-/// <summary> The uniform buffer scene specific information. </summary>
+/// The uniform buffer scene specific information.
 layout (std140) uniform scene
 {
     mat4    projection;         //!< The projection transform which establishes the perspective of the vertex.
@@ -31,8 +27,8 @@ layout (location = 7)   in      mat4    pvm;            //!< A combined matrix o
 flat                    out     int     instanceID;     //!< Allows the fragment shader to fetch the correct colour data.
 
 
-/// <summary> Determines the desired barycentric co-ordinate of the vertex based on its vertex ID. </summary>
-/// <returns> The barycentric co-ordinate. </returns>
+/// Determines the desired barycentric co-ordinate of the vertex based on its vertex ID.
+/// Returns the barycentric co-ordinate.
 vec3 barycentric();
 
 
